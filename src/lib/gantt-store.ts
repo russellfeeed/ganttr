@@ -69,6 +69,7 @@ type Actions = {
   renameTeam: (chartId: string, teamId: string, name: string) => void;
   setTeamColor: (chartId: string, teamId: string, color: string) => void;
   deleteTeam: (chartId: string, teamId: string) => void;
+  markChartExported: (chartId: string) => void;
 };
 
 function firstMondayISO(): string {
