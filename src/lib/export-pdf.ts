@@ -173,17 +173,54 @@ export function exportChartToPdf({ chart, rows, totalWeeks, viewMode }: Opts) {
     const bx = timelineX + Math.max(0, task.startWeek) * weekW;
     const bw = Math.max(0.5, task.durationWeeks * weekW);
     const barH = ROW_H - 2.5;
-    doc.setFillColor(br, bg, bb);
-    doc.roundedRect(bx, y + 1.25, bw, barH, 1, 1, "F");
+    const by = y + 1.25;
+    if (task.tbc) {
+      // Shaded/hatched fill for TBC
+      doc.setFillColor(br, bg, bb);
+      doc.setGState(new (doc as any).GState({ opacity: 0.35 }));
+      doc.roundedRect(bx, by, bw, barH, 1, 1, "F");
+      doc.setGState(new (doc as any).GState({ opacity: 1 }));
+      // Diagonal hatch lines
+      doc.setDrawColor(br, bg, bb);
+      doc.setLineWidth(0.25);
+      const step = 1.4;
+      for (let dx = -barH; dx < bw; dx += step) {
+        const x1 = bx + Math.max(0, dx);
+        const y1 = by + Math.max(0, -dx);
+        const x2 = bx + Math.min(bw, dx + barH);
+        const y2 = by + Math.min(barH, barH - (dx + barH - bw < 0 ? 0 : dx + barH - bw));
+        // simpler: draw clipped diagonals
+        const sx = bx + Math.max(0, dx);
+        const sy = by + (dx < 0 ? -dx : 0);
+        const ex = bx + Math.min(bw, dx + barH);
+        const ey = by + (dx + barH > bw ? barH - (dx + barH - bw) : barH);
+        doc.line(sx, sy, ex, ey);
+        void x1; void y1; void x2; void y2;
+      }
+      // Dashed outline
+      doc.setDrawColor(br, bg, bb);
+      doc.setLineDashPattern([0.8, 0.8], 0);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(bx, by, bw, barH, 1, 1, "S");
+      doc.setLineDashPattern([], 0);
+    } else {
+      doc.setFillColor(br, bg, bb);
+      doc.roundedRect(bx, by, bw, barH, 1, 1, "F");
+    }
 
     // Bar label if fits
     if (bw > 12) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
-      // pick white or dark text based on luminance
-      const lum = 0.299 * br + 0.587 * bg + 0.114 * bb;
-      doc.setTextColor(lum > 160 ? 30 : 255, lum > 160 ? 30 : 255, lum > 160 ? 30 : 255);
-      doc.text(truncate(doc, task.name || "", bw - 2), bx + 1.5, y + 1.25 + barH / 2 + 1.2);
+      if (task.tbc) {
+        doc.setTextColor(40, 40, 40);
+        const label = truncate(doc, `${task.name || ""} (TBC)`, bw - 2);
+        doc.text(label, bx + 1.5, by + barH / 2 + 1.2);
+      } else {
+        const lum = 0.299 * br + 0.587 * bg + 0.114 * bb;
+        doc.setTextColor(lum > 160 ? 30 : 255, lum > 160 ? 30 : 255, lum > 160 ? 30 : 255);
+        doc.text(truncate(doc, task.name || "", bw - 2), bx + 1.5, by + barH / 2 + 1.2);
+      }
     }
   };
 
