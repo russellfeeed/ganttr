@@ -231,6 +231,46 @@ function Index() {
           </div>
         )}
       </main>
+
+      <AlertDialog
+        open={pendingImport !== null}
+        onOpenChange={(open) => !open && setPendingImport(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Import charts</AlertDialogTitle>
+            <AlertDialogDescription>
+              This backup contains{" "}
+              {pendingImport ? Object.keys(pendingImport.charts).length : 0} chart
+              {pendingImport && Object.keys(pendingImport.charts).length === 1 ? "" : "s"}.
+              Merge with your existing charts, or replace them entirely?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingImport) return;
+                const n = importCharts(pendingImport, "replace");
+                setPendingImport(null);
+                toast.success(`Replaced with ${n} chart${n === 1 ? "" : "s"}`);
+              }}
+            >
+              Replace
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingImport) return;
+                const n = importCharts(pendingImport, "merge");
+                setPendingImport(null);
+                toast.success(`Merged ${n} chart${n === 1 ? "" : "s"}`);
+              }}
+            >
+              Merge
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
