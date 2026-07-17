@@ -807,6 +807,18 @@ function ChartEditor() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CapacityCellDialog
+        cell={capacityCell}
+        onOpenChange={(o) => !o && setCapacityCell(null)}
+        teams={teams}
+        tasks={visibleTasks}
+        chartStart={chartStart}
+        onOpenTask={(taskId) => {
+          setCapacityCell(null);
+          setSelectedTaskId(taskId);
+        }}
+      />
     </div>
   );
 }
