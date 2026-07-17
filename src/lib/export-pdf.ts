@@ -173,17 +173,37 @@ export function exportChartToPdf({ chart, rows, totalWeeks, viewMode }: Opts) {
     const bx = timelineX + Math.max(0, task.startWeek) * weekW;
     const bw = Math.max(0.5, task.durationWeeks * weekW);
     const barH = ROW_H - 2.5;
-    doc.setFillColor(br, bg, bb);
-    doc.roundedRect(bx, y + 1.25, bw, barH, 1, 1, "F");
+    const by = y + 1.25;
+    if (task.tbc) {
+      // Shaded fill for TBC: lower opacity + dashed outline
+      doc.setFillColor(br, bg, bb);
+      doc.setGState(new (doc as any).GState({ opacity: 0.3 }));
+      doc.roundedRect(bx, by, bw, barH, 1, 1, "F");
+      doc.setGState(new (doc as any).GState({ opacity: 1 }));
+      doc.setDrawColor(br, bg, bb);
+      doc.setLineDashPattern([0.9, 0.9], 0);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(bx, by, bw, barH, 1, 1, "S");
+      doc.setLineDashPattern([], 0);
+      doc.setLineWidth(0.2);
+    } else {
+      doc.setFillColor(br, bg, bb);
+      doc.roundedRect(bx, by, bw, barH, 1, 1, "F");
+    }
 
     // Bar label if fits
     if (bw > 12) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
-      // pick white or dark text based on luminance
-      const lum = 0.299 * br + 0.587 * bg + 0.114 * bb;
-      doc.setTextColor(lum > 160 ? 30 : 255, lum > 160 ? 30 : 255, lum > 160 ? 30 : 255);
-      doc.text(truncate(doc, task.name || "", bw - 2), bx + 1.5, y + 1.25 + barH / 2 + 1.2);
+      if (task.tbc) {
+        doc.setTextColor(40, 40, 40);
+        const label = truncate(doc, `${task.name || ""} (TBC)`, bw - 2);
+        doc.text(label, bx + 1.5, by + barH / 2 + 1.2);
+      } else {
+        const lum = 0.299 * br + 0.587 * bg + 0.114 * bb;
+        doc.setTextColor(lum > 160 ? 30 : 255, lum > 160 ? 30 : 255, lum > 160 ? 30 : 255);
+        doc.text(truncate(doc, task.name || "", bw - 2), bx + 1.5, by + barH / 2 + 1.2);
+      }
     }
   };
 

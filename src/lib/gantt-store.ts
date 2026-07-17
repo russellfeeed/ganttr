@@ -29,6 +29,7 @@ export type Task = {
   tag?: string;
   dependsOn?: string;
   teamId?: string;
+  tbc?: boolean;
 };
 
 export type Chart = {
@@ -90,6 +91,7 @@ export function computeChartSignature(chart: Chart): string {
       t.tag ?? "",
       t.dependsOn ?? "",
       t.teamId ?? "",
+      t.tbc ? 1 : 0,
     ]),
   });
 }

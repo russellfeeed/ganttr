@@ -885,7 +885,14 @@ function TaskRowBody({ task, team }: { task: Task; team: Team | null }) {
     <>
       <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: task.color }} />
       <div className="flex-1 min-w-0">
-        <div className="truncate text-sm">{task.name}</div>
+        <div className="flex items-center gap-1.5 truncate text-sm">
+          <span className="truncate">{task.name}</span>
+          {task.tbc && (
+            <Badge variant="outline" className="h-4 shrink-0 px-1 text-[9px] border-dashed">
+              TBC
+            </Badge>
+          )}
+        </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>{task.durationWeeks}w</span>
           {team && (
@@ -1147,12 +1154,16 @@ function TaskBar({
     });
   }
 
+  const stripe = task.tbc
+    ? `repeating-linear-gradient(45deg, rgba(255,255,255,0.35) 0 6px, rgba(255,255,255,0) 6px 12px)`
+    : undefined;
   return (
     <div
       data-task-id={task.id}
       className={cn(
         "absolute flex items-center rounded-md text-xs text-white shadow-sm transition-opacity select-none",
         selected && "ring-2 ring-offset-2 ring-offset-background",
+        task.tbc && "border border-dashed border-white/70 opacity-90",
       )}
       style={{
         left,
@@ -1160,6 +1171,7 @@ function TaskBar({
         top: barTop,
         height: ROW_HEIGHT - 12,
         backgroundColor: task.color,
+        backgroundImage: stripe,
         // @ts-expect-error CSS var for ring
         "--tw-ring-color": task.color,
       }}
@@ -1175,6 +1187,14 @@ function TaskBar({
       />
       <div className="px-2 truncate flex-1 pointer-events-none">
         <span className="font-medium">{task.name}</span>
+        {task.tbc && (
+          <Badge
+            variant="secondary"
+            className="ml-1.5 h-4 px-1 text-[9px] bg-white/25 text-white border-0"
+          >
+            TBC
+          </Badge>
+        )}
         {task.tag && (
           <Badge
             variant="secondary"
@@ -1387,6 +1407,22 @@ function TaskEditor({
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="flex items-center justify-between rounded-md border border-input px-3 py-2">
+          <div className="space-y-0.5">
+            <Label htmlFor="tbc" className="text-xs">
+              To be confirmed
+            </Label>
+            <p className="text-[11px] text-muted-foreground">
+              Show this task as shaded on the chart.
+            </p>
+          </div>
+          <Switch
+            id="tbc"
+            checked={!!task.tbc}
+            onCheckedChange={(v) => onChange({ tbc: v || undefined })}
+          />
         </div>
 
         <Button variant="destructive" size="sm" className="w-full" onClick={onDelete}>
