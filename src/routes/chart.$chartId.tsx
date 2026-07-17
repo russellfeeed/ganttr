@@ -626,7 +626,17 @@ function ChartEditor() {
         </div>
 
         {/* Timeline */}
-        <div className="flex-1 overflow-auto">
+        <div
+          ref={rightScrollRef}
+          className="flex-1 overflow-auto"
+          onScroll={(e) => {
+            if (syncingRef.current) return;
+            syncingRef.current = true;
+            if (leftScrollRef.current)
+              leftScrollRef.current.scrollTop = e.currentTarget.scrollTop;
+            syncingRef.current = false;
+          }}
+        >
           <TimelineGrid
             weeks={totalWeeks}
             weekWidth={weekWidth}
@@ -640,6 +650,7 @@ function ChartEditor() {
             }
           />
         </div>
+
 
         {/* Right editor */}
         {selectedTask && (
