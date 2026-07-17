@@ -201,9 +201,13 @@ function ChartEditor() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
+  const leftScrollRef = useRef<HTMLDivElement>(null);
+  const rightScrollRef = useRef<HTMLDivElement>(null);
+  const syncingRef = useRef(false);
+
   if (!chart) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex h-screen items-center justify-center bg-background">
         <div className="text-center">
           <p className="text-sm text-muted-foreground">This chart doesn't exist.</p>
           <Button variant="link" onClick={() => navigate({ to: "/" })}>
@@ -227,9 +231,10 @@ function ChartEditor() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
       {/* Top bar */}
-      <header className="flex items-center gap-3 border-b border-border px-4 py-3">
+      <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
+
         <Button variant="ghost" size="sm" asChild>
           <Link to="/">
             <ArrowLeft className="mr-1 h-4 w-4" /> Charts
@@ -542,12 +547,23 @@ function ChartEditor() {
         {/* Left panel */}
         <div className="flex flex-col border-r border-border" style={{ width: LEFT_PANEL }}>
           <div
-            className="flex items-center border-b border-border px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+            className="flex shrink-0 items-center border-b border-border px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground"
             style={{ height: HEADER_HEIGHT }}
           >
             Tasks
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div
+            ref={leftScrollRef}
+            className="flex-1 overflow-y-auto"
+            onScroll={(e) => {
+              if (syncingRef.current) return;
+              syncingRef.current = true;
+              if (rightScrollRef.current)
+                rightScrollRef.current.scrollTop = e.currentTarget.scrollTop;
+              syncingRef.current = false;
+            }}
+          >
+
             {viewMode === "list" ? (
               <DndContext
                 sensors={sensors}
@@ -610,7 +626,17 @@ function ChartEditor() {
         </div>
 
         {/* Timeline */}
-        <div className="flex-1 overflow-auto">
+        <div
+          ref={rightScrollRef}
+          className="flex-1 overflow-auto"
+          onScroll={(e) => {
+            if (syncingRef.current) return;
+            syncingRef.current = true;
+            if (leftScrollRef.current)
+              leftScrollRef.current.scrollTop = e.currentTarget.scrollTop;
+            syncingRef.current = false;
+          }}
+        >
           <TimelineGrid
             weeks={totalWeeks}
             weekWidth={weekWidth}
@@ -624,6 +650,7 @@ function ChartEditor() {
             }
           />
         </div>
+
 
         {/* Right editor */}
         {selectedTask && (
