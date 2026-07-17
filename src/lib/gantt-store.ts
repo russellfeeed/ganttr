@@ -83,6 +83,7 @@ export const useGanttStore = create<State & Actions>()(
           name: name?.trim() || "Untitled chart",
           startDate: firstMondayISO(),
           tasks: [],
+          teams: [],
           createdAt: Date.now(),
         };
         set((s) => ({ charts: { ...s.charts, [id]: chart }, order: [id, ...s.order] }));
