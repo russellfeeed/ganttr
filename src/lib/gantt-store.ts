@@ -285,7 +285,94 @@ export const useGanttStore = create<State & Actions>()(
         });
         return count;
       },
+
+      addTeam: (chartId, name, color) => {
+        const id = nanoid(8);
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          const teams = chart.teams ?? [];
+          const fallback = TASK_COLORS[teams.length % TASK_COLORS.length].value;
+          const team: Team = {
+            id,
+            name: name?.trim() || `Team ${teams.length + 1}`,
+            color: color ?? fallback,
+          };
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: { ...chart, teams: [...teams, team] },
+            },
+          };
+        });
+        return id;
+      },
+
+      renameTeam: (chartId, teamId, name) =>
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: {
+                ...chart,
+                teams: (chart.teams ?? []).map((t) =>
+                  t.id === teamId ? { ...t, name } : t,
+                ),
+              },
+            },
+          };
+        }),
+
+      setTeamColor: (chartId, teamId, color) =>
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: {
+                ...chart,
+                teams: (chart.teams ?? []).map((t) =>
+                  t.id === teamId ? { ...t, color } : t,
+                ),
+              },
+            },
+          };
+        }),
+
+      deleteTeam: (chartId, teamId) =>
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: {
+                ...chart,
+                teams: (chart.teams ?? []).filter((t) => t.id !== teamId),
+                tasks: chart.tasks.map((task) =>
+                  task.teamId === teamId ? { ...task, teamId: undefined } : task,
+                ),
+              },
+            },
+          };
+        }),
     }),
-    { name: "gantt-store-v1" },
+    {
+      name: "gantt-store-v1",
+      version: 1,
+      migrate: (persisted: any, version) => {
+        if (!persisted || typeof persisted !== "object") return persisted;
+        if (version < 1 && persisted.charts) {
+          for (const id of Object.keys(persisted.charts)) {
+            const c = persisted.charts[id];
+            if (c && !Array.isArray(c.teams)) c.teams = [];
+          }
+        }
+        return persisted;
+      },
+    },
   ),
 );
