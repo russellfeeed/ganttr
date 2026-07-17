@@ -157,6 +157,7 @@ function ChartEditor() {
 
   const teams = chart?.teams ?? [];
 
+  const normalizedSearch = searchQuery.trim().toLowerCase();
   const visibleTasks = useMemo(() => {
     const tasks = chart?.tasks ?? [];
     return tasks.filter((t) => {
@@ -164,8 +165,11 @@ function ChartEditor() {
       if (teamFilter === "__all__") return true;
       if (teamFilter === "__none__") return !t.teamId;
       return t.teamId === teamFilter;
+    }).filter((t) => {
+      if (!normalizedSearch) return true;
+      return t.name.toLowerCase().includes(normalizedSearch);
     });
-  }, [chart?.tasks, tagFilter, teamFilter]);
+  }, [chart?.tasks, tagFilter, teamFilter, normalizedSearch]);
 
   const displayRows = useMemo<DisplayRow[]>(() => {
     if (viewMode === "list") {
