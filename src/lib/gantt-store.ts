@@ -81,6 +81,7 @@ export const useGanttStore = create<State & Actions>()(
     (set, get) => ({
       charts: {},
       order: [],
+      exportSignatures: {},
 
       createChart: (name) => {
         const id = nanoid(8);
