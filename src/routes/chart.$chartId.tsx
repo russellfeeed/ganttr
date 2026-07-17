@@ -100,6 +100,7 @@ function ChartEditor() {
     deleteTask,
     reorderTasks,
     moveTask,
+    importChartTasks,
   } = useGanttStore.getState();
 
   // Subscribe so store changes cause re-renders (getState() alone won't)
