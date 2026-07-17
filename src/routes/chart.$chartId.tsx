@@ -26,6 +26,7 @@ import {
   ZoomIn,
   ZoomOut,
   Download,
+  FileDown,
   Upload,
   Users,
   List,
