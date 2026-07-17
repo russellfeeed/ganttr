@@ -44,7 +44,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useGanttStore, TASK_COLORS, type Task, type Team } from "@/lib/gantt-store";
+import { useGanttStore, TASK_COLORS, computeChartSignature, type Task, type Team } from "@/lib/gantt-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
