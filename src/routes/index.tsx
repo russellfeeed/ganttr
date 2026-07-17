@@ -82,6 +82,20 @@ function Index() {
             <h1 className="text-lg font-semibold tracking-tight">Gantt</h1>
           </div>
           <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleImportFile(f);
+                e.target.value = "";
+              }}
+            />
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="mr-1.5 h-4 w-4" /> Import JSON
+            </Button>
             <Button
               variant="outline"
               disabled={list.length === 0}
