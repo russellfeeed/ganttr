@@ -251,6 +251,82 @@ function ChartEditor() {
             <Switch id="cascade" checked={cascade} onCheckedChange={setCascade} />
           </div>
 
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (!f) return;
+              try {
+                const data = JSON.parse(await f.text());
+                let tasks: Task[] | undefined;
+                let name: string | undefined;
+                let startDate: string | undefined;
+                if (Array.isArray(data?.tasks)) {
+                  tasks = data.tasks;
+                  name = data.name;
+                  startDate = data.startDate;
+                } else if (data?.chart?.tasks) {
+                  tasks = data.chart.tasks;
+                  name = data.chart.name;
+                  startDate = data.chart.startDate;
+                } else if (data?.charts) {
+                  const firstId = data.order?.[0] ?? Object.keys(data.charts)[0];
+                  const c = firstId ? data.charts[firstId] : null;
+                  if (c) {
+                    tasks = c.tasks;
+                    name = c.name;
+                    startDate = c.startDate;
+                  }
+                }
+                if (!tasks) {
+                  toast.error("No tasks found in that file.");
+                  return;
+                }
+                setPendingImport({ tasks, name, startDate });
+              } catch {
+                toast.error("Couldn't read that file — is it valid JSON?");
+              }
+            }}
+          />
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="mr-1 h-4 w-4" /> Import
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const payload = {
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                chart: {
+                  id: chart.id,
+                  name: chart.name,
+                  startDate: chart.startDate,
+                  tasks: chart.tasks,
+                  createdAt: chart.createdAt,
+                },
+              };
+              const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                type: "application/json",
+              });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              const safe = chart.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "chart";
+              a.href = url;
+              a.download = `${safe}-${format(new Date(), "yyyy-MM-dd")}.json`;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              URL.revokeObjectURL(url);
+              toast.success(`Exported ${chart.tasks.length} task${chart.tasks.length === 1 ? "" : "s"}`);
+            }}
+          >
+            <Download className="mr-1 h-4 w-4" /> Export
+          </Button>
           <Button
             size="sm"
             onClick={() => {
