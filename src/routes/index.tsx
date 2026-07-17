@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { format } from "date-fns";
-import { Plus, Trash2, Copy, Pencil, LayoutGrid } from "lucide-react";
+import { Plus, Trash2, Copy, Pencil, LayoutGrid, Download } from "lucide-react";
+import { toast } from "sonner";
 import { useGanttStore } from "@/lib/gantt-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,14 +57,42 @@ function Index() {
             <LayoutGrid className="h-5 w-5 text-primary" />
             <h1 className="text-lg font-semibold tracking-tight">Gantt</h1>
           </div>
-          <Button
-            onClick={() => {
-              const id = createChart();
-              navigate({ to: "/chart/$chartId", params: { chartId: id } });
-            }}
-          >
-            <Plus className="mr-1.5 h-4 w-4" /> New chart
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={list.length === 0}
+              onClick={() => {
+                const payload = {
+                  version: 1,
+                  exportedAt: new Date().toISOString(),
+                  charts,
+                  order,
+                };
+                const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                  type: "application/json",
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `gantt-backup-${format(new Date(), "yyyy-MM-dd")}.json`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                toast.success(`Exported ${list.length} chart${list.length === 1 ? "" : "s"}`);
+              }}
+            >
+              <Download className="mr-1.5 h-4 w-4" /> Export JSON
+            </Button>
+            <Button
+              onClick={() => {
+                const id = createChart();
+                navigate({ to: "/chart/$chartId", params: { chartId: id } });
+              }}
+            >
+              <Plus className="mr-1.5 h-4 w-4" /> New chart
+            </Button>
+          </div>
         </div>
       </header>
 
