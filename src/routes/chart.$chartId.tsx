@@ -31,6 +31,7 @@ import {
   Users,
   List,
   Rows3,
+  Search,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -100,6 +101,7 @@ function ChartEditor() {
   const [teamFilter, setTeamFilter] = useState<string>("__all__");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = useState<{
     tasks: Task[];
@@ -155,6 +157,7 @@ function ChartEditor() {
 
   const teams = chart?.teams ?? [];
 
+  const normalizedSearch = searchQuery.trim().toLowerCase();
   const visibleTasks = useMemo(() => {
     const tasks = chart?.tasks ?? [];
     return tasks.filter((t) => {
@@ -162,8 +165,11 @@ function ChartEditor() {
       if (teamFilter === "__all__") return true;
       if (teamFilter === "__none__") return !t.teamId;
       return t.teamId === teamFilter;
+    }).filter((t) => {
+      if (!normalizedSearch) return true;
+      return t.name.toLowerCase().includes(normalizedSearch);
     });
-  }, [chart?.tasks, tagFilter, teamFilter]);
+  }, [chart?.tasks, tagFilter, teamFilter, normalizedSearch]);
 
   const displayRows = useMemo<DisplayRow[]>(() => {
     if (viewMode === "list") {
@@ -234,6 +240,27 @@ function ChartEditor() {
           onChange={(e) => renameChart(chart.id, e.target.value)}
           className="max-w-xs border-transparent bg-transparent text-base font-semibold shadow-none focus-visible:border-input focus-visible:bg-background"
         />
+
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search tasks"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-9 w-40 sm:w-56 pl-9 pr-8"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-0.5 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={() => setSearchQuery("")}
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Popover>
