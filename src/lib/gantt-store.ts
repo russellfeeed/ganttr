@@ -51,6 +51,11 @@ type Actions = {
     incoming: { charts: Record<string, Chart>; order: string[] },
     mode: "merge" | "replace",
   ) => number;
+  importChartTasks: (
+    chartId: string,
+    incoming: { tasks: Task[]; name?: string; startDate?: string },
+    mode: "merge" | "replace",
+  ) => number;
 };
 
 function firstMondayISO(): string {
