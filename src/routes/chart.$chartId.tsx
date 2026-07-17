@@ -1147,12 +1147,16 @@ function TaskBar({
     });
   }
 
+  const stripe = task.tbc
+    ? `repeating-linear-gradient(45deg, rgba(255,255,255,0.35) 0 6px, rgba(255,255,255,0) 6px 12px)`
+    : undefined;
   return (
     <div
       data-task-id={task.id}
       className={cn(
         "absolute flex items-center rounded-md text-xs text-white shadow-sm transition-opacity select-none",
         selected && "ring-2 ring-offset-2 ring-offset-background",
+        task.tbc && "border border-dashed border-white/70 opacity-90",
       )}
       style={{
         left,
@@ -1160,6 +1164,7 @@ function TaskBar({
         top: barTop,
         height: ROW_HEIGHT - 12,
         backgroundColor: task.color,
+        backgroundImage: stripe,
         // @ts-expect-error CSS var for ring
         "--tw-ring-color": task.color,
       }}
@@ -1175,6 +1180,14 @@ function TaskBar({
       />
       <div className="px-2 truncate flex-1 pointer-events-none">
         <span className="font-medium">{task.name}</span>
+        {task.tbc && (
+          <Badge
+            variant="secondary"
+            className="ml-1.5 h-4 px-1 text-[9px] bg-white/25 text-white border-0"
+          >
+            TBC
+          </Badge>
+        )}
         {task.tag && (
           <Badge
             variant="secondary"
