@@ -201,9 +201,13 @@ function ChartEditor() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
+  const leftScrollRef = useRef<HTMLDivElement>(null);
+  const rightScrollRef = useRef<HTMLDivElement>(null);
+  const syncingRef = useRef(false);
+
   if (!chart) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex h-screen items-center justify-center bg-background">
         <div className="text-center">
           <p className="text-sm text-muted-foreground">This chart doesn't exist.</p>
           <Button variant="link" onClick={() => navigate({ to: "/" })}>
