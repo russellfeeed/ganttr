@@ -885,7 +885,14 @@ function TaskRowBody({ task, team }: { task: Task; team: Team | null }) {
     <>
       <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: task.color }} />
       <div className="flex-1 min-w-0">
-        <div className="truncate text-sm">{task.name}</div>
+        <div className="flex items-center gap-1.5 truncate text-sm">
+          <span className="truncate">{task.name}</span>
+          {task.tbc && (
+            <Badge variant="outline" className="h-4 shrink-0 px-1 text-[9px] border-dashed">
+              TBC
+            </Badge>
+          )}
+        </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>{task.durationWeeks}w</span>
           {team && (
