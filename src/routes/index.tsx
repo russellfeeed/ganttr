@@ -58,6 +58,16 @@ function Index() {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
+      if (data && typeof data === "object" && data.chart && typeof data.chart === "object") {
+        // Single-chart export — wrap it so importCharts can handle it.
+        const c = data.chart;
+        if (!c.id || !Array.isArray(c.tasks)) {
+          toast.error("That chart file is missing tasks or an id.");
+          return;
+        }
+        setPendingImport({ charts: { [c.id]: c }, order: [c.id] });
+        return;
+      }
       if (
         !data ||
         typeof data !== "object" ||
