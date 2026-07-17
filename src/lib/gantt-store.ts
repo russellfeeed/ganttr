@@ -237,6 +237,41 @@ export const useGanttStore = create<State & Actions>()(
         });
         return count;
       },
+
+      importChartTasks: (chartId, incoming, mode) => {
+        let count = 0;
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          const existingIds = new Set(chart.tasks.map((t) => t.id));
+          const idMap: Record<string, string> = {};
+          const remapped: Task[] = incoming.tasks.map((t) => {
+            const newId = existingIds.has(t.id) || idMap[t.id] ? nanoid(8) : t.id;
+            idMap[t.id] = newId;
+            return { ...t, id: newId };
+          });
+          // Fix dependsOn references within the imported set
+          for (const t of remapped) {
+            if (t.dependsOn && idMap[t.dependsOn]) t.dependsOn = idMap[t.dependsOn];
+            else if (t.dependsOn && !existingIds.has(t.dependsOn)) t.dependsOn = undefined;
+          }
+          const nextTasks = mode === "replace" ? remapped : [...chart.tasks, ...remapped];
+          count = remapped.length;
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: {
+                ...chart,
+                name: mode === "replace" && incoming.name ? incoming.name : chart.name,
+                startDate:
+                  mode === "replace" && incoming.startDate ? incoming.startDate : chart.startDate,
+                tasks: nextTasks,
+              },
+            },
+          };
+        });
+        return count;
+      },
     }),
     { name: "gantt-store-v1" },
   ),
