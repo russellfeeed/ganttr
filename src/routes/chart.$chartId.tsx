@@ -1929,6 +1929,36 @@ function CapacityCellDialog({
   const over = cap > 0 && used > cap;
   const atCap = cap > 0 && used === cap;
 
+  const reasons: string[] = [];
+  if (cap === 0 && used > 0) {
+    reasons.push(
+      `Role has no headcount configured, but ${used} ${used === 1 ? "person is" : "people are"} demanded.`,
+    );
+  }
+  if (over) {
+    const overBy = used - cap;
+    reasons.push(
+      `Demand exceeds capacity by ${overBy} (${used} needed, ${cap} available).`,
+    );
+    if (contributing.length > 1) {
+      reasons.push(
+        `${contributing.length} tasks running simultaneously in this week compete for the same role.`,
+      );
+    }
+    const heavy = contributing.filter((c) => c.qty > cap);
+    for (const h of heavy) {
+      reasons.push(
+        `"${h.task.name}" alone demands ${h.qty}, more than the ${cap}-person capacity.`,
+      );
+    }
+    if (contributing.length > 1 && heavy.length === 0) {
+      const top = [...contributing].sort((a, b) => b.qty - a.qty).slice(0, 2);
+      reasons.push(
+        `Biggest contributors: ${top.map((t) => `"${t.task.name}" (${t.qty})`).join(", ")}.`,
+      );
+    }
+  }
+
   const weekLabel = cell
     ? `Week of ${format(addWeeks(chartStart, cell.week), "d MMM yyyy")}`
     : "";
@@ -1957,6 +1987,18 @@ function CapacityCellDialog({
           <span className="font-semibold">{cap}</span>
           {over ? " — overallocated" : atCap ? " — at capacity" : ""}
         </div>
+
+        {reasons.length > 0 && (
+          <ul className="space-y-1 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {reasons.map((r, i) => (
+              <li key={i} className="flex gap-2">
+                <span aria-hidden>•</span>
+                <span>{r}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
 
         {contributing.length === 0 ? (
           <div className="py-6 text-center text-sm text-muted-foreground">
