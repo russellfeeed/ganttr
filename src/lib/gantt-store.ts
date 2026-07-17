@@ -76,6 +76,24 @@ function firstMondayISO(): string {
   return formatISO(startOfWeek(new Date(), { weekStartsOn: 1 }), { representation: "date" });
 }
 
+export function computeChartSignature(chart: Chart): string {
+  return JSON.stringify({
+    n: chart.name,
+    s: chart.startDate,
+    teams: (chart.teams ?? []).map((t) => [t.id, t.name, t.color]),
+    tasks: chart.tasks.map((t) => [
+      t.id,
+      t.name,
+      t.startWeek,
+      t.durationWeeks,
+      t.color,
+      t.tag ?? "",
+      t.dependsOn ?? "",
+      t.teamId ?? "",
+    ]),
+  });
+}
+
 export const useGanttStore = create<State & Actions>()(
   persist(
     (set, get) => ({
