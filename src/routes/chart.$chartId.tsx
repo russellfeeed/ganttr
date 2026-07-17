@@ -86,6 +86,29 @@ function ChartEditor() {
   // Subscribe so store changes cause re-renders (getState() alone won't)
   useGanttStore((s) => s.charts[chartId]?.tasks.length);
 
+  const weekWidth = ZOOM_LEVELS[zoomIdx].width;
+
+  // Determine how many week columns to show: at least MIN_WEEKS, and enough
+  // to cover the furthest task end + some slack.
+  const requiredWeeks = (chart?.tasks ?? []).reduce(
+    (max, t) => Math.max(max, t.startWeek + t.durationWeeks),
+    0,
+  );
+  const totalWeeks = Math.max(MIN_WEEKS, requiredWeeks + 4);
+
+  const chartStart = useMemo(
+    () => new Date((chart?.startDate ?? "1970-01-01") + "T00:00:00"),
+    [chart?.startDate],
+  );
+
+  const allTags = useMemo(() => {
+    const s = new Set<string>();
+    (chart?.tasks ?? []).forEach((t) => t.tag && s.add(t.tag));
+    return Array.from(s);
+  }, [chart?.tasks]);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
   if (!chart) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -99,30 +122,11 @@ function ChartEditor() {
     );
   }
 
-  const weekWidth = ZOOM_LEVELS[zoomIdx].width;
-
-  // Determine how many week columns to show: at least MIN_WEEKS, and enough
-  // to cover the furthest task end + some slack.
-  const requiredWeeks = chart.tasks.reduce(
-    (max, t) => Math.max(max, t.startWeek + t.durationWeeks),
-    0,
-  );
-  const totalWeeks = Math.max(MIN_WEEKS, requiredWeeks + 4);
-
-  const chartStart = useMemo(() => new Date(chart.startDate + "T00:00:00"), [chart.startDate]);
-
-  const allTags = useMemo(() => {
-    const s = new Set<string>();
-    chart.tasks.forEach((t) => t.tag && s.add(t.tag));
-    return Array.from(s);
-  }, [chart.tasks]);
-
   const visibleTasks =
     tagFilter === "__all__" ? chart.tasks : chart.tasks.filter((t) => t.tag === tagFilter);
 
   const selectedTask = chart.tasks.find((t) => t.id === selectedTaskId) ?? null;
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   function onSortEnd(e: DragEndEvent) {
     const { active, over } = e;
