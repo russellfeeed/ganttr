@@ -14,10 +14,22 @@ export const TASK_COLORS = [
   { name: "Teal", value: "#14b8a6" },
 ];
 
+export type Role = {
+  id: string;
+  name: string;
+  headcount: number;
+};
+
 export type Team = {
   id: string;
   name: string;
   color: string;
+  roles: Role[];
+};
+
+export type TaskDemand = {
+  roleId: string;
+  quantity: number;
 };
 
 export type Task = {
@@ -30,6 +42,7 @@ export type Task = {
   dependsOn?: string;
   teamId?: string;
   tbc?: boolean;
+  demands?: TaskDemand[];
 };
 
 export type Chart = {
@@ -70,6 +83,11 @@ type Actions = {
   renameTeam: (chartId: string, teamId: string, name: string) => void;
   setTeamColor: (chartId: string, teamId: string, color: string) => void;
   deleteTeam: (chartId: string, teamId: string) => void;
+  addRole: (chartId: string, teamId: string, name?: string, headcount?: number) => string;
+  renameRole: (chartId: string, teamId: string, roleId: string, name: string) => void;
+  setRoleHeadcount: (chartId: string, teamId: string, roleId: string, headcount: number) => void;
+  deleteRole: (chartId: string, teamId: string, roleId: string) => void;
+  setTaskDemand: (chartId: string, taskId: string, roleId: string, quantity: number) => void;
   markChartExported: (chartId: string) => void;
 };
 
@@ -81,7 +99,12 @@ export function computeChartSignature(chart: Chart): string {
   return JSON.stringify({
     n: chart.name,
     s: chart.startDate,
-    teams: (chart.teams ?? []).map((t) => [t.id, t.name, t.color]),
+    teams: (chart.teams ?? []).map((t) => [
+      t.id,
+      t.name,
+      t.color,
+      (t.roles ?? []).map((r) => [r.id, r.name, r.headcount]),
+    ]),
     tasks: chart.tasks.map((t) => [
       t.id,
       t.name,
@@ -92,6 +115,7 @@ export function computeChartSignature(chart: Chart): string {
       t.dependsOn ?? "",
       t.teamId ?? "",
       t.tbc ? 1 : 0,
+      (t.demands ?? []).map((d) => [d.roleId, d.quantity]),
     ]),
   });
 }
@@ -261,7 +285,12 @@ export const useGanttStore = create<State & Actions>()(
             if (!src) continue;
             const newId = nextCharts[oldId] ? nanoid(8) : oldId;
             idMap[oldId] = newId;
-            nextCharts[newId] = { ...src, id: newId };
+            nextCharts[newId] = {
+              ...src,
+              id: newId,
+              teams: (src.teams ?? []).map((t) => ({ ...t, roles: t.roles ?? [] })),
+              tasks: (src.tasks ?? []).map((t) => ({ ...t, demands: t.demands ?? [] })),
+            };
             prepended.push(newId);
             count++;
           }
@@ -284,14 +313,19 @@ export const useGanttStore = create<State & Actions>()(
           const remapped: Task[] = incoming.tasks.map((t) => {
             const newId = existingIds.has(t.id) || idMap[t.id] ? nanoid(8) : t.id;
             idMap[t.id] = newId;
-            return { ...t, id: newId };
+            return { ...t, id: newId, demands: t.demands ?? [] };
           });
-          // Fix dependsOn references within the imported set + sanitize teamId
+          // Fix dependsOn references within the imported set + sanitize teamId + demand roleIds
           const knownTeamIds = new Set((chart.teams ?? []).map((t) => t.id));
+          const knownRoleIds = new Set<string>();
+          for (const team of chart.teams ?? []) for (const r of team.roles ?? []) knownRoleIds.add(r.id);
           for (const t of remapped) {
             if (t.dependsOn && idMap[t.dependsOn]) t.dependsOn = idMap[t.dependsOn];
             else if (t.dependsOn && !existingIds.has(t.dependsOn)) t.dependsOn = undefined;
             if (t.teamId && !knownTeamIds.has(t.teamId)) t.teamId = undefined;
+            if (t.demands && t.demands.length > 0) {
+              t.demands = t.demands.filter((d) => knownRoleIds.has(d.roleId));
+            }
           }
           const nextTasks = mode === "replace" ? remapped : [...chart.tasks, ...remapped];
           count = remapped.length;
@@ -322,6 +356,7 @@ export const useGanttStore = create<State & Actions>()(
             id,
             name: name?.trim() || `Team ${teams.length + 1}`,
             color: color ?? fallback,
+            roles: [],
           };
           return {
             charts: {
@@ -371,15 +406,142 @@ export const useGanttStore = create<State & Actions>()(
         set((s) => {
           const chart = s.charts[chartId];
           if (!chart) return s;
+          const team = (chart.teams ?? []).find((t) => t.id === teamId);
+          const removedRoleIds = new Set((team?.roles ?? []).map((r) => r.id));
           return {
             charts: {
               ...s.charts,
               [chartId]: {
                 ...chart,
                 teams: (chart.teams ?? []).filter((t) => t.id !== teamId),
-                tasks: chart.tasks.map((task) =>
-                  task.teamId === teamId ? { ...task, teamId: undefined } : task,
+                tasks: chart.tasks.map((task) => {
+                  const cleared = task.teamId === teamId ? { ...task, teamId: undefined } : task;
+                  if (!cleared.demands || cleared.demands.length === 0) return cleared;
+                  const nextDemands = cleared.demands.filter((d) => !removedRoleIds.has(d.roleId));
+                  return { ...cleared, demands: nextDemands };
+                }),
+              },
+            },
+          };
+        }),
+
+      addRole: (chartId, teamId, name, headcount) => {
+        const id = nanoid(8);
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: {
+                ...chart,
+                teams: (chart.teams ?? []).map((t) => {
+                  if (t.id !== teamId) return t;
+                  const roles = t.roles ?? [];
+                  const role: Role = {
+                    id,
+                    name: name?.trim() || `Role ${roles.length + 1}`,
+                    headcount: Math.max(0, headcount ?? 1),
+                  };
+                  return { ...t, roles: [...roles, role] };
+                }),
+              },
+            },
+          };
+        });
+        return id;
+      },
+
+      renameRole: (chartId, teamId, roleId, name) =>
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: {
+                ...chart,
+                teams: (chart.teams ?? []).map((t) =>
+                  t.id === teamId
+                    ? {
+                        ...t,
+                        roles: (t.roles ?? []).map((r) =>
+                          r.id === roleId ? { ...r, name } : r,
+                        ),
+                      }
+                    : t,
                 ),
+              },
+            },
+          };
+        }),
+
+      setRoleHeadcount: (chartId, teamId, roleId, headcount) =>
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: {
+                ...chart,
+                teams: (chart.teams ?? []).map((t) =>
+                  t.id === teamId
+                    ? {
+                        ...t,
+                        roles: (t.roles ?? []).map((r) =>
+                          r.id === roleId ? { ...r, headcount: Math.max(0, headcount) } : r,
+                        ),
+                      }
+                    : t,
+                ),
+              },
+            },
+          };
+        }),
+
+      deleteRole: (chartId, teamId, roleId) =>
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: {
+                ...chart,
+                teams: (chart.teams ?? []).map((t) =>
+                  t.id === teamId
+                    ? { ...t, roles: (t.roles ?? []).filter((r) => r.id !== roleId) }
+                    : t,
+                ),
+                tasks: chart.tasks.map((task) => {
+                  if (!task.demands || task.demands.length === 0) return task;
+                  const nextDemands = task.demands.filter((d) => d.roleId !== roleId);
+                  if (nextDemands.length === task.demands.length) return task;
+                  return { ...task, demands: nextDemands };
+                }),
+              },
+            },
+          };
+        }),
+
+      setTaskDemand: (chartId, taskId, roleId, quantity) =>
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          const q = Math.max(0, Math.floor(quantity));
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: {
+                ...chart,
+                tasks: chart.tasks.map((task) => {
+                  if (task.id !== taskId) return task;
+                  const existing = task.demands ?? [];
+                  const others = existing.filter((d) => d.roleId !== roleId);
+                  const next = q > 0 ? [...others, { roleId, quantity: q }] : others;
+                  return { ...task, demands: next };
+                }),
               },
             },
           };
@@ -394,13 +556,25 @@ export const useGanttStore = create<State & Actions>()(
     }),
     {
       name: "gantt-store-v1",
-      version: 1,
+      version: 2,
       migrate: (persisted: any, version) => {
         if (!persisted || typeof persisted !== "object") return persisted;
         if (version < 1 && persisted.charts) {
           for (const id of Object.keys(persisted.charts)) {
             const c = persisted.charts[id];
             if (c && !Array.isArray(c.teams)) c.teams = [];
+          }
+        }
+        if (version < 2 && persisted.charts) {
+          for (const id of Object.keys(persisted.charts)) {
+            const c = persisted.charts[id];
+            if (!c) continue;
+            if (Array.isArray(c.teams)) {
+              for (const t of c.teams) if (!Array.isArray(t.roles)) t.roles = [];
+            }
+            if (Array.isArray(c.tasks)) {
+              for (const task of c.tasks) if (!Array.isArray(task.demands)) task.demands = [];
+            }
           }
         }
         return persisted;
