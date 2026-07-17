@@ -43,6 +43,7 @@ export type Chart = {
 type State = {
   charts: Record<string, Chart>;
   order: string[];
+  exportSignatures: Record<string, string>;
 };
 
 type Actions = {
