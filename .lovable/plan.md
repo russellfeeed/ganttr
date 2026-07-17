@@ -1,39 +1,37 @@
-## Plan: Teams + swimlanes (per chart)
+## Goal
+Add a "PDF" export option next to the current JSON Export button that renders the chart (task list + timeline) to a landscape PDF.
 
-Add a per-chart team list, assign at most one team per task, and let the user toggle the timeline between the current flat view and a swimlane view grouped by team.
+## UX
+- Replace the single Export button with a split: a **JSON** button (current behavior) and a new **PDF** button, both in the header toolbar.
+- PDF button: generates a landscape A4 PDF named `<chart-name>-<date>.pdf` and triggers download. Shows a toast on success/failure.
 
-### Data model (`src/lib/gantt-store.ts`)
-- New type `Team = { id: string; name: string; color: string }`.
-- Extend `Chart` with `teams: Team[]` (default `[]`).
-- Extend `Task` with `teamId?: string`.
-- New actions: `addTeam(chartId, name?)`, `renameTeam(chartId, id, name)`, `setTeamColor(chartId, id, color)`, `deleteTeam(chartId, id)` (also clears `teamId` from tasks referencing it).
-- Migration: use zustand `persist` `migrate` (bump version to 1) to add `teams: []` on existing charts and leave tasks untouched.
-- `importChartTasks` and `importCharts` pass through `teamId`/`teams` unchanged; unknown `teamId`s are cleared on import (same pattern already used for `dependsOn`).
+## Approach
+Use client-side generation with `jspdf` (no server round-trip, works offline, small footprint).
 
-### Team management UI (chart editor toolbar)
-- Add a **Teams** popover button next to the Cascade switch. Contents:
-  - List of teams with color swatch, inline rename, delete.
-  - "Add team" row (name input + color from existing `TASK_COLORS` palette).
-- Empty state: "No teams yet — add one to start grouping tasks."
+Rendered content:
+1. **Header block**: chart name, start date, export timestamp.
+2. **Task list column** (left, ~30% width): task name, duration, team badge (colored dot + name).
+3. **Timeline area** (right, ~70% width): week header row + one bar per task, positioned by `startWeek` and sized by `durationWeeks`, filled with the task color. Team lane headers appear when the current view is Swimlanes; otherwise it's a flat list.
+4. **Legend**: teams with color swatches (only if any teams exist).
+5. **Pagination**: if tasks overflow a page, continue on the next page repeating the week header. Timeline width fits within page width — weeks are scaled to page width; no horizontal overflow.
 
-### Task → team assignment
-- In the task detail panel, add a **Team** select above the existing Tag field with options `Unassigned` + each team. Selecting a team also (optionally) sets the task's color to the team color, but user can still override color afterwards.
-- Task rows and bars show a small colored dot for the team when one is set (in addition to the existing per-task color).
+## What's mirrored from the on-screen chart
+- Current view mode (List vs Swimlanes) — the PDF reflects whatever the user is looking at.
+- Current filters (tag / team) — only visible tasks are exported.
+- Dependency arrows: **out of scope** for v1 (drawing arrows across paginated rows is fragile). Note this in the toast tooltip.
 
-### Swimlane view toggle
-- Add a segmented control in the toolbar: **List** / **Swimlanes** (persisted in local component state; not saved to store — matches current zoom/cascade behavior).
-- **List mode**: unchanged — current flat, reorderable task list.
-- **Swimlanes mode**:
-  - Left panel groups tasks under team headers in this order: each team in `chart.teams` order, then an **Unassigned** lane at the bottom.
-  - Each group has a header row (team name + color swatch + task count) and its tasks below it. Task reordering via `@dnd-kit` stays enabled, but is restricted to reordering within the same lane (drop across lanes reassigns `teamId` — see below).
-  - Timeline grid mirrors the left panel row-for-row so bars line up. Group headers span the full width with a subtle background.
-  - Dragging a task **row** onto another lane's header reassigns `teamId` to that lane (or clears it for Unassigned). Dragging a task **bar** horizontally still only changes `startWeek` (unchanged).
+## Files touched
+- `src/routes/chart.$chartId.tsx` — split the Export button, add PDF handler that calls a new helper.
+- `src/lib/export-pdf.ts` (new) — pure function `exportChartToPdf(chart, opts)` that builds the jsPDF document. Takes `viewMode`, `visibleTasks`, `groups` (for swimlanes) so the route stays the source of truth for filtering/grouping.
+- `package.json` — add `jspdf` dependency.
 
-### Filtering interaction
-- Extend the existing tag filter dropdown to also allow filtering by team (single dropdown or add a second one — pick a second dropdown for clarity). In swimlane mode, filtering by a specific team collapses to just that lane.
+## Out of scope
+- Custom paper sizes / portrait toggle (landscape only, per request).
+- Dependency arrows in PDF.
+- Server-side rendering / higher-fidelity vector export.
 
-### Out of scope
-- Team-level capacity / workload views.
-- Multiple assignees per task.
-- Cross-chart teams or team templates.
-- Saving the list/swimlane toggle to the persisted store.
+## Technical notes
+- jsPDF is bundle-safe, no native deps, works in the browser.
+- Landscape A4 = 297×210 mm. Use mm units. Reserve 10 mm margins.
+- Week column width = `(pageWidth - leftPanelWidth - margins) / totalWeeks`, min 4 mm; if smaller, reduce left panel or paginate horizontally (v1: just clamp, accept dense weeks).
+- Row height ~7 mm; page fits ~25 task rows after header.
