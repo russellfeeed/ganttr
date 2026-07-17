@@ -86,6 +86,12 @@ function ChartEditor() {
   const [cascade, setCascade] = useState(true);
   const [tagFilter, setTagFilter] = useState<string>("__all__");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingImport, setPendingImport] = useState<{
+    tasks: Task[];
+    name?: string;
+    startDate?: string;
+  } | null>(null);
 
   const {
     renameChart,
