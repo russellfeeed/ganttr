@@ -455,9 +455,16 @@ function ChartEditor() {
               toast.success(
                 `Exported ${chart.tasks.length} task${chart.tasks.length === 1 ? "" : "s"}`,
               );
+              markChartExported(chart.id);
             }}
           >
             <Download className="mr-1 h-4 w-4" /> JSON
+            {hasUnexportedChanges && (
+              <span
+                aria-label="Unexported changes"
+                className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500"
+              />
+            )}
           </Button>
           <Button
             variant="outline"
@@ -476,6 +483,7 @@ function ChartEditor() {
                   viewMode,
                 });
                 toast.success("PDF exported");
+                markChartExported(chart.id);
               } catch (err) {
                 console.error(err);
                 toast.error("Couldn't export PDF");
@@ -483,6 +491,12 @@ function ChartEditor() {
             }}
           >
             <FileDown className="mr-1 h-4 w-4" /> PDF
+            {hasUnexportedChanges && (
+              <span
+                aria-label="Unexported changes"
+                className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500"
+              />
+            )}
           </Button>
           <Button
             size="sm"
