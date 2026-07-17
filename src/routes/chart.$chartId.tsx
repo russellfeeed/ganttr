@@ -707,10 +707,36 @@ function TeamsManager({
 
 /* ---------------- Lane header (swimlane mode) ---------------- */
 
-function LaneHeader({ team, count }: { team: Team | null; count: number }) {
+function LaneHeader({
+  team,
+  count,
+  onDropTask,
+}: {
+  team: Team | null;
+  count: number;
+  onDropTask: (taskId: string) => void;
+}) {
+  const [over, setOver] = useState(false);
   return (
     <div
-      className="flex items-center gap-2 border-b border-border bg-muted/40 px-3"
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("application/x-task-id")) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          if (!over) setOver(true);
+        }
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        const taskId = e.dataTransfer.getData("application/x-task-id");
+        if (taskId) onDropTask(taskId);
+      }}
+      className={cn(
+        "flex items-center gap-2 border-b border-border bg-muted/40 px-3",
+        over && "bg-accent ring-1 ring-inset ring-primary",
+      )}
       style={{ height: HEADER_ROW_HEIGHT }}
     >
       <span
