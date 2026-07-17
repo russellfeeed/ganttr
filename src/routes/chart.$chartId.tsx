@@ -27,6 +27,10 @@ import {
   ZoomOut,
   Download,
   Upload,
+  Users,
+  List,
+  Rows3,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -39,7 +43,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useGanttStore, TASK_COLORS, type Task } from "@/lib/gantt-store";
+import { useGanttStore, TASK_COLORS, type Task, type Team } from "@/lib/gantt-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,6 +72,7 @@ export const Route = createFileRoute("/chart/$chartId")({
 
 const MIN_WEEKS = 12;
 const ROW_HEIGHT = 44;
+const HEADER_ROW_HEIGHT = 32;
 const HEADER_HEIGHT = 56;
 const LEFT_PANEL = 260;
 
@@ -77,6 +82,11 @@ const ZOOM_LEVELS = [
   { label: "Wide", width: 104 },
 ];
 
+type ViewMode = "list" | "swimlanes";
+type DisplayRow =
+  | { kind: "header"; team: Team | null; count: number; key: string }
+  | { kind: "task"; task: Task; key: string };
+
 function ChartEditor() {
   const { chartId } = Route.useParams();
   const chart = useGanttStore((s) => s.charts[chartId]);
@@ -85,6 +95,8 @@ function ChartEditor() {
   const [zoomIdx, setZoomIdx] = useState(1);
   const [cascade, setCascade] = useState(true);
   const [tagFilter, setTagFilter] = useState<string>("__all__");
+  const [teamFilter, setTeamFilter] = useState<string>("__all__");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = useState<{
@@ -101,15 +113,18 @@ function ChartEditor() {
     reorderTasks,
     moveTask,
     importChartTasks,
+    addTeam,
+    renameTeam,
+    setTeamColor,
+    deleteTeam,
   } = useGanttStore.getState();
 
-  // Subscribe so store changes cause re-renders (getState() alone won't)
+  // Subscribe so store changes cause re-renders
   useGanttStore((s) => s.charts[chartId]?.tasks.length);
+  useGanttStore((s) => s.charts[chartId]?.teams?.length);
 
   const weekWidth = ZOOM_LEVELS[zoomIdx].width;
 
-  // Determine how many week columns to show: at least MIN_WEEKS, and enough
-  // to cover the furthest task end + some slack.
   const requiredWeeks = (chart?.tasks ?? []).reduce(
     (max, t) => Math.max(max, t.startWeek + t.durationWeeks),
     0,
@@ -127,6 +142,46 @@ function ChartEditor() {
     return Array.from(s);
   }, [chart?.tasks]);
 
+  const teams = chart?.teams ?? [];
+
+  const visibleTasks = useMemo(() => {
+    const tasks = chart?.tasks ?? [];
+    return tasks.filter((t) => {
+      if (tagFilter !== "__all__" && t.tag !== tagFilter) return false;
+      if (teamFilter === "__all__") return true;
+      if (teamFilter === "__none__") return !t.teamId;
+      return t.teamId === teamFilter;
+    });
+  }, [chart?.tasks, tagFilter, teamFilter]);
+
+  const displayRows = useMemo<DisplayRow[]>(() => {
+    if (viewMode === "list") {
+      return visibleTasks.map((t) => ({ kind: "task", task: t, key: t.id }));
+    }
+    const rows: DisplayRow[] = [];
+    const teamIds = new Set(teams.map((t) => t.id));
+    const groups: { team: Team | null; tasks: Task[] }[] = teams.map((team) => ({
+      team,
+      tasks: visibleTasks.filter((t) => t.teamId === team.id),
+    }));
+    const unassigned = visibleTasks.filter((t) => !t.teamId || !teamIds.has(t.teamId));
+    if (unassigned.length || teams.length === 0) {
+      groups.push({ team: null, tasks: unassigned });
+    }
+    for (const g of groups) {
+      // Show empty team lanes too, but hide fully-empty Unassigned if teams exist
+      if (g.team === null && g.tasks.length === 0 && teams.length > 0) continue;
+      rows.push({
+        kind: "header",
+        team: g.team,
+        count: g.tasks.length,
+        key: `h-${g.team?.id ?? "none"}`,
+      });
+      for (const t of g.tasks) rows.push({ kind: "task", task: t, key: t.id });
+    }
+    return rows;
+  }, [viewMode, visibleTasks, teams]);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   if (!chart) {
@@ -142,11 +197,7 @@ function ChartEditor() {
     );
   }
 
-  const visibleTasks =
-    tagFilter === "__all__" ? chart.tasks : chart.tasks.filter((t) => t.tag === tagFilter);
-
   const selectedTask = chart.tasks.find((t) => t.id === selectedTaskId) ?? null;
-
 
   function onSortEnd(e: DragEndEvent) {
     const { active, over } = e;
@@ -173,7 +224,7 @@ function ChartEditor() {
           className="max-w-xs border-transparent bg-transparent text-base font-semibold shadow-none focus-visible:border-input focus-visible:bg-background"
         />
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
@@ -203,6 +254,72 @@ function ChartEditor() {
               />
             </PopoverContent>
           </Popover>
+
+          {/* View mode toggle */}
+          <div className="flex items-center rounded-md border border-input p-0.5">
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setViewMode("list")}
+            >
+              <List className="mr-1 h-3.5 w-3.5" /> List
+            </Button>
+            <Button
+              variant={viewMode === "swimlanes" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setViewMode("swimlanes")}
+            >
+              <Rows3 className="mr-1 h-3.5 w-3.5" /> Swimlanes
+            </Button>
+          </div>
+
+          {/* Teams manager */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Users className="mr-1.5 h-4 w-4" /> Teams
+                {teams.length > 0 && (
+                  <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">
+                    {teams.length}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-3" align="end">
+              <TeamsManager
+                teams={teams}
+                onAdd={(name) => addTeam(chart.id, name)}
+                onRename={(id, name) => renameTeam(chart.id, id, name)}
+                onSetColor={(id, c) => setTeamColor(chart.id, id, c)}
+                onDelete={(id) => deleteTeam(chart.id, id)}
+              />
+            </PopoverContent>
+          </Popover>
+
+          {teams.length > 0 && (
+            <Select value={teamFilter} onValueChange={setTeamFilter}>
+              <SelectTrigger className="h-9 w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All teams</SelectItem>
+                <SelectItem value="__none__">Unassigned</SelectItem>
+                {teams.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 rounded-sm"
+                        style={{ backgroundColor: t.color }}
+                      />
+                      {t.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           {allTags.length > 0 && (
             <Select value={tagFilter} onValueChange={setTagFilter}>
@@ -307,6 +424,7 @@ function ChartEditor() {
                   name: chart.name,
                   startDate: chart.startDate,
                   tasks: chart.tasks,
+                  teams: chart.teams,
                   createdAt: chart.createdAt,
                 },
               };
@@ -315,14 +433,17 @@ function ChartEditor() {
               });
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
-              const safe = chart.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "chart";
+              const safe =
+                chart.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "chart";
               a.href = url;
               a.download = `${safe}-${format(new Date(), "yyyy-MM-dd")}.json`;
               document.body.appendChild(a);
               a.click();
               a.remove();
               URL.revokeObjectURL(url);
-              toast.success(`Exported ${chart.tasks.length} task${chart.tasks.length === 1 ? "" : "s"}`);
+              toast.success(
+                `Exported ${chart.tasks.length} task${chart.tasks.length === 1 ? "" : "s"}`,
+              );
             }}
           >
             <Download className="mr-1 h-4 w-4" /> Export
@@ -341,7 +462,7 @@ function ChartEditor() {
 
       {/* Main split */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left panel: task list with reorder */}
+        {/* Left panel */}
         <div className="flex flex-col border-r border-border" style={{ width: LEFT_PANEL }}>
           <div
             className="flex items-center border-b border-border px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground"
@@ -350,25 +471,46 @@ function ChartEditor() {
             Tasks
           </div>
           <div className="flex-1 overflow-y-auto">
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSortEnd}>
-              <SortableContext
-                items={chart.tasks.map((t) => t.id)}
-                strategy={verticalListSortingStrategy}
+            {viewMode === "list" ? (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={onSortEnd}
               >
-                {chart.tasks.map((task) => {
-                  const dimmed = tagFilter !== "__all__" && task.tag !== tagFilter;
-                  return (
-                    <TaskRow
-                      key={task.id}
-                      task={task}
-                      dimmed={dimmed}
-                      selected={selectedTaskId === task.id}
-                      onSelect={() => setSelectedTaskId(task.id)}
+                <SortableContext
+                  items={visibleTasks.map((t) => t.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {displayRows.map((row) =>
+                    row.kind === "task" ? (
+                      <TaskRow
+                        key={row.key}
+                        task={row.task}
+                        team={teams.find((t) => t.id === row.task.teamId) ?? null}
+                        selected={selectedTaskId === row.task.id}
+                        onSelect={() => setSelectedTaskId(row.task.id)}
+                      />
+                    ) : null,
+                  )}
+                </SortableContext>
+              </DndContext>
+            ) : (
+              <div>
+                {displayRows.map((row) =>
+                  row.kind === "header" ? (
+                    <LaneHeader key={row.key} team={row.team} count={row.count} />
+                  ) : (
+                    <TaskRowStatic
+                      key={row.key}
+                      task={row.task}
+                      team={teams.find((t) => t.id === row.task.teamId) ?? null}
+                      selected={selectedTaskId === row.task.id}
+                      onSelect={() => setSelectedTaskId(row.task.id)}
                     />
-                  );
-                })}
-              </SortableContext>
-            </DndContext>
+                  ),
+                )}
+              </div>
+            )}
             {chart.tasks.length === 0 && (
               <div className="p-6 text-center text-sm text-muted-foreground">
                 No tasks yet. Click "Task" to add one.
@@ -380,15 +522,12 @@ function ChartEditor() {
         {/* Timeline */}
         <div className="flex-1 overflow-auto">
           <TimelineGrid
-            chartId={chart.id}
             weeks={totalWeeks}
             weekWidth={weekWidth}
             chartStart={chartStart}
-            tasks={chart.tasks}
-            visibleTaskIds={new Set(visibleTasks.map((t) => t.id))}
+            rows={displayRows}
             selectedTaskId={selectedTaskId}
             onSelect={setSelectedTaskId}
-            cascade={cascade}
             onMove={(taskId, newStart) => moveTask(chart.id, taskId, newStart, cascade)}
             onResize={(taskId, newDuration) =>
               updateTask(chart.id, taskId, { durationWeeks: newDuration })
@@ -402,6 +541,7 @@ function ChartEditor() {
             key={selectedTask.id}
             task={selectedTask}
             chartTasks={chart.tasks}
+            teams={teams}
             onChange={(patch) => updateTask(chart.id, selectedTask.id, patch)}
             onDelete={() => {
               deleteTask(chart.id, selectedTask.id);
@@ -454,16 +594,134 @@ function ChartEditor() {
   );
 }
 
-/* ---------------- Task row (sortable) ---------------- */
+/* ---------------- Teams manager popover ---------------- */
+
+function TeamsManager({
+  teams,
+  onAdd,
+  onRename,
+  onSetColor,
+  onDelete,
+}: {
+  teams: Team[];
+  onAdd: (name: string) => string;
+  onRename: (id: string, name: string) => void;
+  onSetColor: (id: string, color: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  return (
+    <div className="space-y-3">
+      <div>
+        <h4 className="text-sm font-semibold">Teams</h4>
+        <p className="text-xs text-muted-foreground">
+          Assign tasks to a team, then switch to Swimlanes view to group them.
+        </p>
+      </div>
+      <div className="space-y-2 max-h-64 overflow-y-auto">
+        {teams.length === 0 && (
+          <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            No teams yet — add one below.
+          </div>
+        )}
+        {teams.map((team) => (
+          <div key={team.id} className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className="h-6 w-6 shrink-0 rounded-sm border border-border"
+                  style={{ backgroundColor: team.color }}
+                  aria-label="Change color"
+                />
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-2" align="start">
+                <div className="flex flex-wrap gap-1.5 max-w-[180px]">
+                  {TASK_COLORS.map((c) => (
+                    <button
+                      key={c.value}
+                      onClick={() => onSetColor(team.id, c.value)}
+                      className={cn(
+                        "h-6 w-6 rounded-sm border-2",
+                        team.color === c.value ? "border-foreground" : "border-transparent",
+                      )}
+                      style={{ backgroundColor: c.value }}
+                      aria-label={c.name}
+                    />
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Input
+              value={team.name}
+              onChange={(e) => onRename(team.id, e.target.value)}
+              className="h-8 text-sm"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={() => onDelete(team.id)}
+              aria-label="Delete team"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+      </div>
+      <form
+        className="flex gap-2 pt-2 border-t border-border"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const name = draft.trim();
+          if (!name) return;
+          onAdd(name);
+          setDraft("");
+        }}
+      >
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="New team name"
+          className="h-8 text-sm"
+        />
+        <Button type="submit" size="sm" disabled={!draft.trim()}>
+          <Plus className="h-4 w-4" />
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+/* ---------------- Lane header (swimlane mode) ---------------- */
+
+function LaneHeader({ team, count }: { team: Team | null; count: number }) {
+  return (
+    <div
+      className="flex items-center gap-2 border-b border-border bg-muted/40 px-3"
+      style={{ height: HEADER_ROW_HEIGHT }}
+    >
+      <span
+        className="h-2.5 w-2.5 rounded-sm"
+        style={{ backgroundColor: team?.color ?? "hsl(var(--muted-foreground))" }}
+      />
+      <span className="text-xs font-medium">{team?.name ?? "Unassigned"}</span>
+      <span className="ml-auto text-[10px] text-muted-foreground">
+        {count} task{count === 1 ? "" : "s"}
+      </span>
+    </div>
+  );
+}
+
+/* ---------------- Task row (sortable, list mode) ---------------- */
 
 function TaskRow({
   task,
-  dimmed,
+  team,
   selected,
   onSelect,
 }: {
   task: Task;
-  dimmed: boolean;
+  team: Team | null;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -474,7 +732,7 @@ function TaskRow({
     transform: CSS.Transform.toString(transform),
     transition,
     height: ROW_HEIGHT,
-    opacity: isDragging ? 0.5 : dimmed ? 0.35 : 1,
+    opacity: isDragging ? 0.5 : 1,
   };
   return (
     <div
@@ -495,49 +753,89 @@ function TaskRow({
       >
         <GripVertical className="h-4 w-4" />
       </button>
-      <span
-        className="h-3 w-3 shrink-0 rounded-sm"
-        style={{ backgroundColor: task.color }}
-      />
+      <TaskRowBody task={task} team={team} />
+    </div>
+  );
+}
+
+/* ---------------- Task row (static, swimlane mode) ---------------- */
+
+function TaskRowStatic({
+  task,
+  team,
+  selected,
+  onSelect,
+}: {
+  task: Task;
+  team: Team | null;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <div
+      onClick={onSelect}
+      style={{ height: ROW_HEIGHT }}
+      className={cn(
+        "flex items-center gap-2 border-b border-border pl-6 pr-2 cursor-pointer",
+        selected && "bg-accent",
+      )}
+    >
+      <TaskRowBody task={task} team={team} />
+    </div>
+  );
+}
+
+function TaskRowBody({ task, team }: { task: Task; team: Team | null }) {
+  return (
+    <>
+      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: task.color }} />
       <div className="flex-1 min-w-0">
         <div className="truncate text-sm">{task.name}</div>
-        <div className="text-xs text-muted-foreground">
-          {task.durationWeeks}w{task.tag ? ` · ${task.tag}` : ""}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span>{task.durationWeeks}w</span>
+          {team && (
+            <>
+              <span>·</span>
+              <span
+                className="h-1.5 w-1.5 rounded-sm"
+                style={{ backgroundColor: team.color }}
+              />
+              <span className="truncate">{team.name}</span>
+            </>
+          )}
+          {task.tag && (
+            <>
+              <span>·</span>
+              <span className="truncate">{task.tag}</span>
+            </>
+          )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
 /* ---------------- Timeline grid ---------------- */
 
 function TimelineGrid({
-  chartId,
   weeks,
   weekWidth,
   chartStart,
-  tasks,
-  visibleTaskIds,
+  rows,
   selectedTaskId,
   onSelect,
   onMove,
   onResize,
 }: {
-  chartId: string;
   weeks: number;
   weekWidth: number;
   chartStart: Date;
-  tasks: Task[];
-  visibleTaskIds: Set<string>;
+  rows: DisplayRow[];
   selectedTaskId: string | null;
   onSelect: (id: string) => void;
-  cascade: boolean;
   onMove: (taskId: string, newStart: number) => void;
   onResize: (taskId: string, newDuration: number) => void;
 }) {
-  void chartId;
-
-  // Build month spans across the week columns for the top header
   const monthSpans = useMemo(() => {
     const spans: { label: string; span: number }[] = [];
     let currentLabel = "";
@@ -556,8 +854,28 @@ function TimelineGrid({
     return spans;
   }, [chartStart, weeks]);
 
+  // Compute cumulative Y offsets for each row (header vs task differ in height)
+  const rowOffsets = useMemo(() => {
+    const offsets: number[] = [];
+    let y = 0;
+    for (const r of rows) {
+      offsets.push(y);
+      y += r.kind === "header" ? HEADER_ROW_HEIGHT : ROW_HEIGHT;
+    }
+    return { offsets, total: y };
+  }, [rows]);
+
+  // Map task id → row index for arrows
+  const rowIndexByTaskId = useMemo(() => {
+    const m = new Map<string, number>();
+    rows.forEach((r, i) => {
+      if (r.kind === "task") m.set(r.task.id, i);
+    });
+    return m;
+  }, [rows]);
+
   const width = weeks * weekWidth;
-  const height = tasks.length * ROW_HEIGHT;
+  const height = Math.max(rowOffsets.total, 200);
 
   return (
     <div className="relative" style={{ width, minWidth: "100%" }}>
@@ -594,7 +912,7 @@ function TimelineGrid({
       </div>
 
       {/* Grid background */}
-      <div className="relative" style={{ width, height: Math.max(height, 200) }}>
+      <div className="relative" style={{ width, height }}>
         {/* vertical week lines */}
         <div className="absolute inset-0 flex pointer-events-none">
           {Array.from({ length: weeks }).map((_, i) => (
@@ -605,38 +923,44 @@ function TimelineGrid({
             />
           ))}
         </div>
-        {/* horizontal row lines */}
+
+        {/* horizontal row lines + lane header stripes */}
         <div className="absolute inset-0 pointer-events-none">
-          {tasks.map((_, i) => (
+          {rows.map((r, i) => (
             <div
               key={i}
-              className="border-b border-border/60"
-              style={{ height: ROW_HEIGHT }}
+              className={cn(
+                "border-b border-border/60",
+                r.kind === "header" && "bg-muted/40",
+              )}
+              style={{ height: r.kind === "header" ? HEADER_ROW_HEIGHT : ROW_HEIGHT }}
             />
           ))}
         </div>
 
         {/* Dependency arrows */}
         <DependencyArrows
-          tasks={tasks}
+          rows={rows}
+          rowIndexByTaskId={rowIndexByTaskId}
+          rowOffsets={rowOffsets.offsets}
           weekWidth={weekWidth}
-          visibleTaskIds={visibleTaskIds}
         />
 
         {/* Bars */}
-        {tasks.map((task, rowIdx) => (
-          <TaskBar
-            key={task.id}
-            task={task}
-            rowIdx={rowIdx}
-            weekWidth={weekWidth}
-            selected={selectedTaskId === task.id}
-            visible={visibleTaskIds.has(task.id)}
-            onSelect={() => onSelect(task.id)}
-            onMove={(newStart) => onMove(task.id, newStart)}
-            onResize={(newDuration) => onResize(task.id, newDuration)}
-          />
-        ))}
+        {rows.map((r, i) =>
+          r.kind === "task" ? (
+            <TaskBar
+              key={r.task.id}
+              task={r.task}
+              top={rowOffsets.offsets[i]}
+              weekWidth={weekWidth}
+              selected={selectedTaskId === r.task.id}
+              onSelect={() => onSelect(r.task.id)}
+              onMove={(newStart) => onMove(r.task.id, newStart)}
+              onResize={(newDuration) => onResize(r.task.id, newDuration)}
+            />
+          ) : null,
+        )}
       </div>
     </div>
   );
@@ -648,19 +972,17 @@ type DragMode = null | "move" | "resize-l" | "resize-r";
 
 function TaskBar({
   task,
-  rowIdx,
+  top,
   weekWidth,
   selected,
-  visible,
   onSelect,
   onMove,
   onResize,
 }: {
   task: Task;
-  rowIdx: number;
+  top: number;
   weekWidth: number;
   selected: boolean;
-  visible: boolean;
   onSelect: () => void;
   onMove: (newStart: number) => void;
   onResize: (newDuration: number) => void;
@@ -715,7 +1037,7 @@ function TaskBar({
 
   const left = currentStart * weekWidth + 2;
   const width = currentDuration * weekWidth - 4;
-  const top = rowIdx * ROW_HEIGHT + 6;
+  const barTop = top + 6;
 
   function startDrag(mode: DragMode, e: React.MouseEvent) {
     e.stopPropagation();
@@ -736,12 +1058,11 @@ function TaskBar({
       className={cn(
         "absolute flex items-center rounded-md text-xs text-white shadow-sm transition-opacity select-none",
         selected && "ring-2 ring-offset-2 ring-offset-background",
-        !visible && "opacity-30",
       )}
       style={{
         left,
         width,
-        top,
+        top: barTop,
         height: ROW_HEIGHT - 12,
         backgroundColor: task.color,
         // @ts-expect-error CSS var for ring
@@ -779,29 +1100,31 @@ function TaskBar({
 /* ---------------- Dependency arrows ---------------- */
 
 function DependencyArrows({
-  tasks,
+  rows,
+  rowIndexByTaskId,
+  rowOffsets,
   weekWidth,
-  visibleTaskIds,
 }: {
-  tasks: Task[];
+  rows: DisplayRow[];
+  rowIndexByTaskId: Map<string, number>;
+  rowOffsets: number[];
   weekWidth: number;
-  visibleTaskIds: Set<string>;
 }) {
-  const rowOf = new Map(tasks.map((t, i) => [t.id, i]));
   const arrows: ReactElement[] = [];
-  for (const task of tasks) {
+  for (const r of rows) {
+    if (r.kind !== "task") continue;
+    const task = r.task;
     if (!task.dependsOn) continue;
-    const pred = tasks.find((t) => t.id === task.dependsOn);
-    if (!pred) continue;
-    if (!visibleTaskIds.has(task.id) || !visibleTaskIds.has(pred.id)) continue;
-    const fromRow = rowOf.get(pred.id)!;
-    const toRow = rowOf.get(task.id)!;
+    const predIdx = rowIndexByTaskId.get(task.dependsOn);
+    const toIdx = rowIndexByTaskId.get(task.id);
+    if (predIdx === undefined || toIdx === undefined) continue;
+    const predRow = rows[predIdx];
+    if (predRow.kind !== "task") continue;
+    const pred = predRow.task;
     const x1 = (pred.startWeek + pred.durationWeeks) * weekWidth - 2;
-    const y1 = fromRow * ROW_HEIGHT + ROW_HEIGHT / 2;
+    const y1 = rowOffsets[predIdx] + ROW_HEIGHT / 2;
     const x2 = task.startWeek * weekWidth + 2;
-    const y2 = toRow * ROW_HEIGHT + ROW_HEIGHT / 2;
-
-    // L-shape path with a small horizontal stub
+    const y2 = rowOffsets[toIdx] + ROW_HEIGHT / 2;
     const stub = 8;
     const midX = Math.max(x1 + stub, x2 - stub);
     const d = `M ${x1} ${y1} L ${midX} ${y1} L ${midX} ${y2} L ${x2 - 4} ${y2}`;
@@ -831,12 +1154,14 @@ function DependencyArrows({
 function TaskEditor({
   task,
   chartTasks,
+  teams,
   onChange,
   onDelete,
   onClose,
 }: {
   task: Task;
   chartTasks: Task[];
+  teams: Team[];
   onChange: (patch: Partial<Task>) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -859,6 +1184,39 @@ function TaskEditor({
             onChange={(e) => onChange({ name: e.target.value })}
             className="mt-1"
           />
+        </div>
+
+        <div>
+          <Label className="text-xs">Team</Label>
+          <Select
+            value={task.teamId ?? "__none__"}
+            onValueChange={(v) => {
+              const teamId = v === "__none__" ? undefined : v;
+              const team = teamId ? teams.find((t) => t.id === teamId) : null;
+              // Adopt the team color if the task hasn't been recolored to a non-team color
+              const patch: Partial<Task> = { teamId };
+              if (team) patch.color = team.color;
+              onChange(patch);
+            }}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Unassigned</SelectItem>
+              {teams.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-sm"
+                      style={{ backgroundColor: t.color }}
+                    />
+                    {t.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -936,12 +1294,7 @@ function TaskEditor({
           </Select>
         </div>
 
-        <Button
-          variant="destructive"
-          size="sm"
-          className="w-full"
-          onClick={onDelete}
-        >
+        <Button variant="destructive" size="sm" className="w-full" onClick={onDelete}>
           <Trash2 className="mr-1.5 h-4 w-4" /> Delete task
         </Button>
       </div>
