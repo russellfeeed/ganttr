@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { format } from "date-fns";
-import { Plus, Trash2, Copy, Pencil, LayoutGrid, Download } from "lucide-react";
+import { Plus, Trash2, Copy, Pencil, LayoutGrid, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useGanttStore } from "@/lib/gantt-store";
 import { Button } from "@/components/ui/button";
@@ -43,11 +43,35 @@ function Index() {
   const deleteChart = useGanttStore((s) => s.deleteChart);
   const duplicateChart = useGanttStore((s) => s.duplicateChart);
   const renameChart = useGanttStore((s) => s.renameChart);
+  const importCharts = useGanttStore((s) => s.importCharts);
   const navigate = useNavigate();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingImport, setPendingImport] = useState<
+    { charts: Record<string, any>; order: string[] } | null
+  >(null);
 
   const list = order.map((id) => charts[id]).filter(Boolean);
+
+  const handleImportFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (
+        !data ||
+        typeof data !== "object" ||
+        !data.charts ||
+        !Array.isArray(data.order)
+      ) {
+        toast.error("That doesn't look like a Gantt backup file.");
+        return;
+      }
+      setPendingImport({ charts: data.charts, order: data.order });
+    } catch {
+      toast.error("Couldn't read that file — is it valid JSON?");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,6 +82,20 @@ function Index() {
             <h1 className="text-lg font-semibold tracking-tight">Gantt</h1>
           </div>
           <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleImportFile(f);
+                e.target.value = "";
+              }}
+            />
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="mr-1.5 h-4 w-4" /> Import JSON
+            </Button>
             <Button
               variant="outline"
               disabled={list.length === 0}
@@ -193,6 +231,46 @@ function Index() {
           </div>
         )}
       </main>
+
+      <AlertDialog
+        open={pendingImport !== null}
+        onOpenChange={(open) => !open && setPendingImport(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Import charts</AlertDialogTitle>
+            <AlertDialogDescription>
+              This backup contains{" "}
+              {pendingImport ? Object.keys(pendingImport.charts).length : 0} chart
+              {pendingImport && Object.keys(pendingImport.charts).length === 1 ? "" : "s"}.
+              Merge with your existing charts, or replace them entirely?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingImport) return;
+                const n = importCharts(pendingImport, "replace");
+                setPendingImport(null);
+                toast.success(`Replaced with ${n} chart${n === 1 ? "" : "s"}`);
+              }}
+            >
+              Replace
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingImport) return;
+                const n = importCharts(pendingImport, "merge");
+                setPendingImport(null);
+                toast.success(`Merged ${n} chart${n === 1 ? "" : "s"}`);
+              }}
+            >
+              Merge
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

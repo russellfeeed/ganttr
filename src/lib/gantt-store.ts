@@ -47,6 +47,10 @@ type Actions = {
   deleteTask: (chartId: string, taskId: string) => void;
   reorderTasks: (chartId: string, ids: string[]) => void;
   moveTask: (chartId: string, taskId: string, newStartWeek: number, cascade: boolean) => void;
+  importCharts: (
+    incoming: { charts: Record<string, Chart>; order: string[] },
+    mode: "merge" | "replace",
+  ) => number;
 };
 
 function firstMondayISO(): string {
@@ -201,6 +205,33 @@ export const useGanttStore = create<State & Actions>()(
             },
           };
         }),
+
+
+      importCharts: (incoming, mode) => {
+        let count = 0;
+        set((s) => {
+          const baseCharts = mode === "replace" ? {} : { ...s.charts };
+          const baseOrder = mode === "replace" ? [] : [...s.order];
+          const idMap: Record<string, string> = {};
+          const nextCharts: Record<string, Chart> = { ...baseCharts };
+          const prepended: string[] = [];
+          for (const oldId of incoming.order) {
+            const src = incoming.charts[oldId];
+            if (!src) continue;
+            const newId = nextCharts[oldId] ? nanoid(8) : oldId;
+            idMap[oldId] = newId;
+            nextCharts[newId] = { ...src, id: newId };
+            prepended.push(newId);
+            count++;
+          }
+          const nextOrder = [
+            ...prepended,
+            ...baseOrder.filter((id) => !prepended.includes(id)),
+          ];
+          return { charts: nextCharts, order: nextOrder };
+        });
+        return count;
+      },
     }),
     { name: "gantt-store-v1" },
   ),
