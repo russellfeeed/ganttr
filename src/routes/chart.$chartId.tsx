@@ -649,7 +649,7 @@ function DependencyArrows({
   visibleTaskIds: Set<string>;
 }) {
   const rowOf = new Map(tasks.map((t, i) => [t.id, i]));
-  const arrows: JSX.Element[] = [];
+  const arrows: ReactElement[] = [];
   for (const task of tasks) {
     if (!task.dependsOn) continue;
     const pred = tasks.find((t) => t.id === task.dependsOn);
