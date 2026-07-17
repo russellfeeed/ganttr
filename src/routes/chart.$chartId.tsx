@@ -119,7 +119,16 @@ function ChartEditor() {
     renameTeam,
     setTeamColor,
     deleteTeam,
+    markChartExported,
   } = useGanttStore.getState();
+
+  const exportedSignature = useGanttStore((s) => s.exportSignatures[chartId]);
+  const currentSignature = useMemo(
+    () => (chart ? computeChartSignature(chart) : ""),
+    [chart],
+  );
+  const hasUnexportedChanges =
+    !!chart && chart.tasks.length > 0 && currentSignature !== exportedSignature;
 
   // Subscribe so store changes cause re-renders
   useGanttStore((s) => s.charts[chartId]?.tasks.length);
