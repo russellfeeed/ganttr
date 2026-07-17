@@ -1409,6 +1409,22 @@ function TaskEditor({
           </Select>
         </div>
 
+        <div className="flex items-center justify-between rounded-md border border-input px-3 py-2">
+          <div className="space-y-0.5">
+            <Label htmlFor="tbc" className="text-xs">
+              To be confirmed
+            </Label>
+            <p className="text-[11px] text-muted-foreground">
+              Show this task as shaded on the chart.
+            </p>
+          </div>
+          <Switch
+            id="tbc"
+            checked={!!task.tbc}
+            onCheckedChange={(v) => onChange({ tbc: v || undefined })}
+          />
+        </div>
+
         <Button variant="destructive" size="sm" className="w-full" onClick={onDelete}>
           <Trash2 className="mr-1.5 h-4 w-4" /> Delete task
         </Button>
