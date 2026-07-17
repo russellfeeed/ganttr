@@ -44,7 +44,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useGanttStore, TASK_COLORS, type Task, type Team } from "@/lib/gantt-store";
+import { useGanttStore, TASK_COLORS, computeChartSignature, type Task, type Team } from "@/lib/gantt-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -119,7 +119,16 @@ function ChartEditor() {
     renameTeam,
     setTeamColor,
     deleteTeam,
+    markChartExported,
   } = useGanttStore.getState();
+
+  const exportedSignature = useGanttStore((s) => s.exportSignatures[chartId]);
+  const currentSignature = useMemo(
+    () => (chart ? computeChartSignature(chart) : ""),
+    [chart],
+  );
+  const hasUnexportedChanges =
+    !!chart && chart.tasks.length > 0 && currentSignature !== exportedSignature;
 
   // Subscribe so store changes cause re-renders
   useGanttStore((s) => s.charts[chartId]?.tasks.length);
@@ -446,9 +455,16 @@ function ChartEditor() {
               toast.success(
                 `Exported ${chart.tasks.length} task${chart.tasks.length === 1 ? "" : "s"}`,
               );
+              markChartExported(chart.id);
             }}
           >
             <Download className="mr-1 h-4 w-4" /> JSON
+            {hasUnexportedChanges && (
+              <span
+                aria-label="Unexported changes"
+                className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500"
+              />
+            )}
           </Button>
           <Button
             variant="outline"
@@ -467,6 +483,7 @@ function ChartEditor() {
                   viewMode,
                 });
                 toast.success("PDF exported");
+                markChartExported(chart.id);
               } catch (err) {
                 console.error(err);
                 toast.error("Couldn't export PDF");
@@ -474,6 +491,12 @@ function ChartEditor() {
             }}
           >
             <FileDown className="mr-1 h-4 w-4" /> PDF
+            {hasUnexportedChanges && (
+              <span
+                aria-label="Unexported changes"
+                className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500"
+              />
+            )}
           </Button>
           <Button
             size="sm"

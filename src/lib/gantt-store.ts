@@ -43,6 +43,7 @@ export type Chart = {
 type State = {
   charts: Record<string, Chart>;
   order: string[];
+  exportSignatures: Record<string, string>;
 };
 
 type Actions = {
@@ -68,10 +69,29 @@ type Actions = {
   renameTeam: (chartId: string, teamId: string, name: string) => void;
   setTeamColor: (chartId: string, teamId: string, color: string) => void;
   deleteTeam: (chartId: string, teamId: string) => void;
+  markChartExported: (chartId: string) => void;
 };
 
 function firstMondayISO(): string {
   return formatISO(startOfWeek(new Date(), { weekStartsOn: 1 }), { representation: "date" });
+}
+
+export function computeChartSignature(chart: Chart): string {
+  return JSON.stringify({
+    n: chart.name,
+    s: chart.startDate,
+    teams: (chart.teams ?? []).map((t) => [t.id, t.name, t.color]),
+    tasks: chart.tasks.map((t) => [
+      t.id,
+      t.name,
+      t.startWeek,
+      t.durationWeeks,
+      t.color,
+      t.tag ?? "",
+      t.dependsOn ?? "",
+      t.teamId ?? "",
+    ]),
+  });
 }
 
 export const useGanttStore = create<State & Actions>()(
@@ -79,6 +99,7 @@ export const useGanttStore = create<State & Actions>()(
     (set, get) => ({
       charts: {},
       order: [],
+      exportSignatures: {},
 
       createChart: (name) => {
         const id = nanoid(8);
@@ -360,6 +381,13 @@ export const useGanttStore = create<State & Actions>()(
               },
             },
           };
+        }),
+
+      markChartExported: (chartId) =>
+        set((s) => {
+          const c = s.charts[chartId];
+          if (!c) return s;
+          return { exportSignatures: { ...s.exportSignatures, [chartId]: computeChartSignature(c) } };
         }),
     }),
     {
