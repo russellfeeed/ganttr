@@ -60,6 +60,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { exportChartToPdf, type PdfRow } from "@/lib/export-pdf";
 
 export const Route = createFileRoute("/chart/$chartId")({
   head: () => ({
