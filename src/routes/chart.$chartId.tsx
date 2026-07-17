@@ -1749,12 +1749,14 @@ function CapacityHeatmap({
   weekWidth,
   chartStart,
   demandByWeek,
+  onCellClick,
 }: {
   teams: Team[];
   totalWeeks: number;
   weekWidth: number;
   chartStart: Date;
   demandByWeek: Map<string, Map<string, number[]>>;
+  onCellClick: (teamId: string, roleId: string, week: number) => void;
 }) {
   const teamsWithRoles = teams.filter((t) => (t.roles ?? []).length > 0);
   const NAME_COL = 240;
