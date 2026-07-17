@@ -411,6 +411,45 @@ function ChartEditor() {
           />
         )}
       </div>
+
+      <AlertDialog
+        open={pendingImport !== null}
+        onOpenChange={(open) => !open && setPendingImport(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Import tasks</AlertDialogTitle>
+            <AlertDialogDescription>
+              This file contains {pendingImport?.tasks.length ?? 0} task
+              {(pendingImport?.tasks.length ?? 0) === 1 ? "" : "s"}. Add them to this chart, or
+              replace all existing tasks?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingImport) return;
+                const n = importChartTasks(chart.id, pendingImport, "replace");
+                setPendingImport(null);
+                toast.success(`Replaced with ${n} task${n === 1 ? "" : "s"}`);
+              }}
+            >
+              Replace
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingImport) return;
+                const n = importChartTasks(chart.id, pendingImport, "merge");
+                setPendingImport(null);
+                toast.success(`Added ${n} task${n === 1 ? "" : "s"}`);
+              }}
+            >
+              Merge
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
