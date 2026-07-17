@@ -547,12 +547,23 @@ function ChartEditor() {
         {/* Left panel */}
         <div className="flex flex-col border-r border-border" style={{ width: LEFT_PANEL }}>
           <div
-            className="flex items-center border-b border-border px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+            className="flex shrink-0 items-center border-b border-border px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground"
             style={{ height: HEADER_HEIGHT }}
           >
             Tasks
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div
+            ref={leftScrollRef}
+            className="flex-1 overflow-y-auto"
+            onScroll={(e) => {
+              if (syncingRef.current) return;
+              syncingRef.current = true;
+              if (rightScrollRef.current)
+                rightScrollRef.current.scrollTop = e.currentTarget.scrollTop;
+              syncingRef.current = false;
+            }}
+          >
+
             {viewMode === "list" ? (
               <DndContext
                 sensors={sensors}
