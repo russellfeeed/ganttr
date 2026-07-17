@@ -85,6 +85,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Gantt — Simple weekly project timelines" },
+      { name: "twitter:description", content: "Build simple Gantt charts with drag-and-drop tasks, weekly timelines, and dependencies." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f817c284-5dd2-4253-bb40-73020f36a78a" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f817c284-5dd2-4253-bb40-73020f36a78a" },
     ],
     links: [
       {
