@@ -14,6 +14,12 @@ export const TASK_COLORS = [
   { name: "Teal", value: "#14b8a6" },
 ];
 
+export type Team = {
+  id: string;
+  name: string;
+  color: string;
+};
+
 export type Task = {
   id: string;
   name: string;
@@ -22,6 +28,7 @@ export type Task = {
   color: string;
   tag?: string;
   dependsOn?: string;
+  teamId?: string;
 };
 
 export type Chart = {
@@ -29,6 +36,7 @@ export type Chart = {
   name: string;
   startDate: string; // ISO date of the Monday the chart starts on
   tasks: Task[];
+  teams: Team[];
   createdAt: number;
 };
 
