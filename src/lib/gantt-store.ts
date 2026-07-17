@@ -14,6 +14,12 @@ export const TASK_COLORS = [
   { name: "Teal", value: "#14b8a6" },
 ];
 
+export type Team = {
+  id: string;
+  name: string;
+  color: string;
+};
+
 export type Task = {
   id: string;
   name: string;
@@ -22,6 +28,7 @@ export type Task = {
   color: string;
   tag?: string;
   dependsOn?: string;
+  teamId?: string;
 };
 
 export type Chart = {
@@ -29,6 +36,7 @@ export type Chart = {
   name: string;
   startDate: string; // ISO date of the Monday the chart starts on
   tasks: Task[];
+  teams: Team[];
   createdAt: number;
 };
 
@@ -56,6 +64,10 @@ type Actions = {
     incoming: { tasks: Task[]; name?: string; startDate?: string },
     mode: "merge" | "replace",
   ) => number;
+  addTeam: (chartId: string, name?: string, color?: string) => string;
+  renameTeam: (chartId: string, teamId: string, name: string) => void;
+  setTeamColor: (chartId: string, teamId: string, color: string) => void;
+  deleteTeam: (chartId: string, teamId: string) => void;
 };
 
 function firstMondayISO(): string {
@@ -75,6 +87,7 @@ export const useGanttStore = create<State & Actions>()(
           name: name?.trim() || "Untitled chart",
           startDate: firstMondayISO(),
           tasks: [],
+          teams: [],
           createdAt: Date.now(),
         };
         set((s) => ({ charts: { ...s.charts, [id]: chart }, order: [id, ...s.order] }));
@@ -250,10 +263,12 @@ export const useGanttStore = create<State & Actions>()(
             idMap[t.id] = newId;
             return { ...t, id: newId };
           });
-          // Fix dependsOn references within the imported set
+          // Fix dependsOn references within the imported set + sanitize teamId
+          const knownTeamIds = new Set((chart.teams ?? []).map((t) => t.id));
           for (const t of remapped) {
             if (t.dependsOn && idMap[t.dependsOn]) t.dependsOn = idMap[t.dependsOn];
             else if (t.dependsOn && !existingIds.has(t.dependsOn)) t.dependsOn = undefined;
+            if (t.teamId && !knownTeamIds.has(t.teamId)) t.teamId = undefined;
           }
           const nextTasks = mode === "replace" ? remapped : [...chart.tasks, ...remapped];
           count = remapped.length;
@@ -272,7 +287,94 @@ export const useGanttStore = create<State & Actions>()(
         });
         return count;
       },
+
+      addTeam: (chartId, name, color) => {
+        const id = nanoid(8);
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          const teams = chart.teams ?? [];
+          const fallback = TASK_COLORS[teams.length % TASK_COLORS.length].value;
+          const team: Team = {
+            id,
+            name: name?.trim() || `Team ${teams.length + 1}`,
+            color: color ?? fallback,
+          };
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: { ...chart, teams: [...teams, team] },
+            },
+          };
+        });
+        return id;
+      },
+
+      renameTeam: (chartId, teamId, name) =>
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: {
+                ...chart,
+                teams: (chart.teams ?? []).map((t) =>
+                  t.id === teamId ? { ...t, name } : t,
+                ),
+              },
+            },
+          };
+        }),
+
+      setTeamColor: (chartId, teamId, color) =>
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: {
+                ...chart,
+                teams: (chart.teams ?? []).map((t) =>
+                  t.id === teamId ? { ...t, color } : t,
+                ),
+              },
+            },
+          };
+        }),
+
+      deleteTeam: (chartId, teamId) =>
+        set((s) => {
+          const chart = s.charts[chartId];
+          if (!chart) return s;
+          return {
+            charts: {
+              ...s.charts,
+              [chartId]: {
+                ...chart,
+                teams: (chart.teams ?? []).filter((t) => t.id !== teamId),
+                tasks: chart.tasks.map((task) =>
+                  task.teamId === teamId ? { ...task, teamId: undefined } : task,
+                ),
+              },
+            },
+          };
+        }),
     }),
-    { name: "gantt-store-v1" },
+    {
+      name: "gantt-store-v1",
+      version: 1,
+      migrate: (persisted: any, version) => {
+        if (!persisted || typeof persisted !== "object") return persisted;
+        if (version < 1 && persisted.charts) {
+          for (const id of Object.keys(persisted.charts)) {
+            const c = persisted.charts[id];
+            if (c && !Array.isArray(c.teams)) c.teams = [];
+          }
+        }
+        return persisted;
+      },
+    },
   ),
 );
