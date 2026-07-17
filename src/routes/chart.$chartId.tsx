@@ -498,7 +498,20 @@ function ChartEditor() {
               <div>
                 {displayRows.map((row) =>
                   row.kind === "header" ? (
-                    <LaneHeader key={row.key} team={row.team} count={row.count} />
+                    <LaneHeader
+                      key={row.key}
+                      team={row.team}
+                      count={row.count}
+                      onDropTask={(taskId) => {
+                        const targetTeamId = row.team?.id;
+                        const t = chart.tasks.find((x) => x.id === taskId);
+                        if (!t) return;
+                        if ((t.teamId ?? undefined) === targetTeamId) return;
+                        const patch: Partial<Task> = { teamId: targetTeamId };
+                        if (row.team) patch.color = row.team.color;
+                        updateTask(chart.id, taskId, patch);
+                      }}
+                    />
                   ) : (
                     <TaskRowStatic
                       key={row.key}
