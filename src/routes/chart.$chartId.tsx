@@ -31,6 +31,7 @@ import {
   Users,
   List,
   Rows3,
+  Search,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
