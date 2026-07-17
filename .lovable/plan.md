@@ -1,56 +1,26 @@
-# Roles & capacity planning
+## Goal
+In the Capacity view, clicking a heatmap cell (team + role + week) opens a details panel listing every task contributing to that cell, with its allocation quantity, so you can quickly see what's driving demand or an overallocation.
 
-Add lightweight capacity planning: each team defines roles with a headcount, tasks declare how many of each role they need, and the chart surfaces load vs capacity.
+## Scope
+Only affects the Capacity heatmap in `src/routes/chart.$chartId.tsx`. No changes to store, export/import, or PDF.
 
-## Data model (src/lib/gantt-store.ts)
+## UX
+- Cells become buttons with a pointer cursor and focus ring; hover shows a subtle highlight.
+- Clicking a cell opens a **Dialog** (shadcn) titled with the team, role, and week label (e.g. "Cloud · Snr Dev · Week of 12 Aug 2026").
+- Dialog body shows:
+  - Summary line: `Allocated X / Capacity Y` with a red tint when over capacity, amber when at capacity, otherwise neutral.
+  - Table of contributing tasks: task name (color dot + tag), demand quantity for that role, task date range. Rows are clickable and open that task in the existing task editor (closing the dialog).
+  - Empty state ("No tasks allocated") when the cell is zero.
+- Close via the standard dialog close button or Escape.
+- Keyboard: cells are `<button>` elements so Tab/Enter work.
 
-- Extend `Team` with `roles: Role[]` where `Role = { id, name, headcount: number }`.
-- Extend `Task` with `demands: { roleId: string; quantity: number }[]` (empty by default). Demand is per-role, applied uniformly across the task's weeks.
-- Migrate persisted store to v2: default `roles: []` on existing teams, `demands: []` on existing tasks. Keep the v1 → v2 migration in `persist.migrate`.
-- New store actions:
-  - `addRole(chartId, teamId, name?, headcount?)`
-  - `renameRole`, `setRoleHeadcount`, `deleteRole` (also strips demands referencing that role)
-  - `setTaskDemand(chartId, taskId, roleId, quantity)` (quantity 0 removes it)
-- Deleting a team already clears `teamId` on tasks; also clear demands whose roleId belonged to that team.
+## Technical notes
+- Add local state in `ChartEditor`: `capacityCell: { teamId: string; roleId: string; week: number } | null`.
+- Pass an `onCellClick` prop into `CapacityHeatmap`; wrap each cell `<div>` as a `<button type="button">` and call it with the coordinates.
+- Compute the dialog's task list on the fly from `visibleTasks`: filter by `teamId`, week within `[startWeek, startWeek+durationWeeks)`, and a demand entry matching `roleId` with `quantity > 0`.
+- Reuse the existing `formatWeekLabel`/date helpers already in the file for the header.
+- Reuse the existing task-selection mechanism (setting `selectedTaskId`) for the "open task" row action.
 
-## Team management UI (chart editor Teams popover)
-
-- Under each team, list its roles with inline name + headcount number input and a delete button.
-- "Add role" row (name + headcount, defaults to 1). Reuse existing popover styling.
-
-## Task demands UI (task details panel)
-
-- New "Resource demand" section, only enabled when the task has a team assigned (roles belong to teams). If no team, show a hint: "Assign a team to add role demands."
-- For each role in the task's team, show a small stepper (0–99). Non-zero values are stored in `task.demands`.
-- Show a compact "2× Engineer, 1× Designer" summary on the task row and bar tooltip.
-
-## Capacity view
-
-- Add a "Capacity" toggle next to the existing List / Swimlanes toggle in the chart toolbar.
-- Renders below (or replaces) the task grid while active:
-  - Rows grouped by team, one row per role.
-  - Columns = same weekly timeline as the chart (respects horizontal scroll + fixed header refactor).
-  - Cell value = sum of `quantity` across tasks in that team+role whose week range covers that week (TBC tasks included but marked; filtered/searched tasks excluded to match current chart behaviour).
-  - Cell shading:
-    - 0 → empty
-    - ≤ headcount → tinted using the team colour, opacity scaled by load / headcount
-    - > headcount → red tint, showing "used / capacity" on hover
-    - headcount 0 but demand > 0 → red hatched (no capacity defined)
-- Cell tooltip lists contributing task names.
-
-## Overallocation warnings (always on)
-
-- Compute per week per team+role load in a shared `useMemo`.
-- On each task bar, if any of its weeks pushes any of its demanded roles over capacity, show a small amber warning icon (lucide `TriangleAlert`) with tooltip: "Overallocates Engineer in W3–W4".
-- In the task list row, same icon after the name.
-
-## Out of scope for this pass
-
-- Part-time %, per-person availability, holidays, cost rates. Note in comments where future hooks would slot in (role.headcount → role.availability[]).
-- PDF export changes: keep the existing PDF unchanged for now; capacity is on-screen only. (Can add a second capacity page later.)
-
-## Technical details
-
-- All computation is derived (no new persisted state beyond roles + demands). Memoise `capacityByWeek: Map<teamId, Map<roleId, number[]>>` and `demandByWeek` at the chart level; both views and warning icons read from these.
-- Zero-touch to `src/lib/export-pdf.ts` and JSON import/export shape stays backward compatible — older JSON without `roles`/`demands` loads via the same v1→v2 defaulting used in the persist migrator (importChartTasks fills `demands: []`, importCharts fills `roles: []` on teams).
-- Types: extend the exported `Team` and `Task` types so the PDF module and importers pick up optional fields without changes.
+## Out of scope
+- Editing demand from within the dialog (still done in the task editor).
+- Bulk actions or rebalancing suggestions.
