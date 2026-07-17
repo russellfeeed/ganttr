@@ -1890,3 +1890,115 @@ function CapacityHeatmap({
 // Keep import used to avoid unused warning (helper reserved for future date input)
 void differenceInCalendarWeeks;
 
+function CapacityCellDialog({
+  cell,
+  onOpenChange,
+  teams,
+  tasks,
+  chartStart,
+  onOpenTask,
+}: {
+  cell: { teamId: string; roleId: string; week: number } | null;
+  onOpenChange: (open: boolean) => void;
+  teams: Team[];
+  tasks: Task[];
+  chartStart: Date;
+  onOpenTask: (taskId: string) => void;
+}) {
+  const open = cell !== null;
+  const team = cell ? teams.find((t) => t.id === cell.teamId) ?? null : null;
+  const role = team && cell ? team.roles.find((r) => r.id === cell.roleId) ?? null : null;
+
+  const contributing = cell
+    ? tasks
+        .filter((t) => t.teamId === cell.teamId)
+        .filter(
+          (t) =>
+            cell.week >= t.startWeek &&
+            cell.week < t.startWeek + t.durationWeeks,
+        )
+        .map((t) => {
+          const d = t.demands?.find((d) => d.roleId === cell.roleId);
+          return d && d.quantity > 0 ? { task: t, qty: d.quantity } : null;
+        })
+        .filter((v): v is { task: Task; qty: number } => v !== null)
+    : [];
+
+  const used = contributing.reduce((s, c) => s + c.qty, 0);
+  const cap = role?.headcount ?? 0;
+  const over = cap > 0 && used > cap;
+  const atCap = cap > 0 && used === cap;
+
+  const weekLabel = cell
+    ? `Week of ${format(addWeeks(chartStart, cell.week), "d MMM yyyy")}`
+    : "";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
+            {team?.name ?? "Team"} · {role?.name ?? "Role"}
+          </DialogTitle>
+          <DialogDescription>{weekLabel}</DialogDescription>
+        </DialogHeader>
+
+        <div
+          className={cn(
+            "rounded-md border px-3 py-2 text-sm",
+            over
+              ? "border-destructive/50 bg-destructive/10 text-destructive"
+              : atCap
+                ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                : "border-border bg-muted/40",
+          )}
+        >
+          Allocated <span className="font-semibold">{used}</span> / Capacity{" "}
+          <span className="font-semibold">{cap}</span>
+          {over ? " — overallocated" : atCap ? " — at capacity" : ""}
+        </div>
+
+        {contributing.length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            No tasks allocated in this week.
+          </div>
+        ) : (
+          <div className="max-h-72 overflow-y-auto rounded-md border border-border divide-y divide-border">
+            {contributing.map(({ task, qty }) => {
+              const start = format(addWeeks(chartStart, task.startWeek), "d MMM");
+              const end = format(
+                addWeeks(chartStart, task.startWeek + task.durationWeeks - 1),
+                "d MMM",
+              );
+              return (
+                <button
+                  key={task.id}
+                  type="button"
+                  onClick={() => onOpenTask(task.id)}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted/60 focus:outline-none focus:bg-muted/60"
+                >
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-sm"
+                    style={{ backgroundColor: task.color }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="truncate text-sm font-medium">{task.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {start} – {end}
+                      {task.tag ? ` · ${task.tag}` : ""}
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="shrink-0">
+                    {qty}
+                  </Badge>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
