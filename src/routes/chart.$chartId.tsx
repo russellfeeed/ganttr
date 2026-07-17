@@ -231,9 +231,10 @@ function ChartEditor() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
       {/* Top bar */}
-      <header className="flex items-center gap-3 border-b border-border px-4 py-3">
+      <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
+
         <Button variant="ghost" size="sm" asChild>
           <Link to="/">
             <ArrowLeft className="mr-1 h-4 w-4" /> Charts
