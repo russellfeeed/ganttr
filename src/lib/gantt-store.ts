@@ -64,6 +64,10 @@ type Actions = {
     incoming: { tasks: Task[]; name?: string; startDate?: string },
     mode: "merge" | "replace",
   ) => number;
+  addTeam: (chartId: string, name?: string, color?: string) => string;
+  renameTeam: (chartId: string, teamId: string, name: string) => void;
+  setTeamColor: (chartId: string, teamId: string, color: string) => void;
+  deleteTeam: (chartId: string, teamId: string) => void;
 };
 
 function firstMondayISO(): string {
