@@ -364,6 +364,13 @@ export const useGanttStore = create<State & Actions>()(
             },
           };
         }),
+
+      markChartExported: (chartId) =>
+        set((s) => {
+          const c = s.charts[chartId];
+          if (!c) return s;
+          return { exportSignatures: { ...s.exportSignatures, [chartId]: computeChartSignature(c) } };
+        }),
     }),
     {
       name: "gantt-store-v1",
