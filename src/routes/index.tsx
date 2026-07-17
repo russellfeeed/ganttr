@@ -43,11 +43,35 @@ function Index() {
   const deleteChart = useGanttStore((s) => s.deleteChart);
   const duplicateChart = useGanttStore((s) => s.duplicateChart);
   const renameChart = useGanttStore((s) => s.renameChart);
+  const importCharts = useGanttStore((s) => s.importCharts);
   const navigate = useNavigate();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingImport, setPendingImport] = useState<
+    { charts: Record<string, any>; order: string[] } | null
+  >(null);
 
   const list = order.map((id) => charts[id]).filter(Boolean);
+
+  const handleImportFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (
+        !data ||
+        typeof data !== "object" ||
+        !data.charts ||
+        !Array.isArray(data.order)
+      ) {
+        toast.error("That doesn't look like a Gantt backup file.");
+        return;
+      }
+      setPendingImport({ charts: data.charts, order: data.order });
+    } catch {
+      toast.error("Couldn't read that file — is it valid JSON?");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
