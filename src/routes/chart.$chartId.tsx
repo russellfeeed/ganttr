@@ -812,12 +812,18 @@ function TaskRowStatic({
 }) {
   return (
     <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("application/x-task-id", task.id);
+      }}
       onClick={onSelect}
       style={{ height: ROW_HEIGHT }}
       className={cn(
-        "flex items-center gap-2 border-b border-border pl-6 pr-2 cursor-pointer",
+        "flex items-center gap-2 border-b border-border pl-6 pr-2 cursor-grab active:cursor-grabbing",
         selected && "bg-accent",
       )}
+      title="Drag onto a team lane to assign"
     >
       <TaskRowBody task={task} team={team} />
     </div>
