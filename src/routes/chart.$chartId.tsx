@@ -1988,6 +1988,18 @@ function CapacityCellDialog({
           {over ? " — overallocated" : atCap ? " — at capacity" : ""}
         </div>
 
+        {reasons.length > 0 && (
+          <ul className="space-y-1 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {reasons.map((r, i) => (
+              <li key={i} className="flex gap-2">
+                <span aria-hidden>•</span>
+                <span>{r}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+
         {contributing.length === 0 ? (
           <div className="py-6 text-center text-sm text-muted-foreground">
             No tasks allocated in this week.
