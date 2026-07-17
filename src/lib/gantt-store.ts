@@ -47,6 +47,10 @@ type Actions = {
   deleteTask: (chartId: string, taskId: string) => void;
   reorderTasks: (chartId: string, ids: string[]) => void;
   moveTask: (chartId: string, taskId: string, newStartWeek: number, cascade: boolean) => void;
+  importCharts: (
+    incoming: { charts: Record<string, Chart>; order: string[] },
+    mode: "merge" | "replace",
+  ) => number;
 };
 
 function firstMondayISO(): string {
