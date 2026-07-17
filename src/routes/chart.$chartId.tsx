@@ -101,6 +101,7 @@ function ChartEditor() {
   const [teamFilter, setTeamFilter] = useState<string>("__all__");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = useState<{
     tasks: Task[];
