@@ -1845,18 +1845,21 @@ function CapacityHeatmap({
                           const ratio = cap > 0 ? used / cap : used > 0 ? 2 : 0;
                           const over = cap > 0 && used > cap;
                           return (
-                            <div
+                            <button
+                              type="button"
                               key={w}
-                              className="shrink-0 border-r border-border flex items-center justify-center text-[10px]"
+                              onClick={() => onCellClick(team.id, role.id, w)}
+                              className="shrink-0 border-r border-border flex items-center justify-center text-[10px] hover:ring-2 hover:ring-primary/60 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
                               style={{
                                 width: weekWidth,
+                                height: "100%",
                                 backgroundColor: ratioColor(ratio),
                                 color: ratio > 0.85 ? "white" : undefined,
                               }}
                               title={`Week ${w + 1}: ${used}/${cap}${over ? " (over)" : ""}`}
                             >
                               {used > 0 ? `${used}/${cap}` : ""}
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
