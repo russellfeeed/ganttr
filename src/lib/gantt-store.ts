@@ -205,7 +205,7 @@ export const useGanttStore = create<State & Actions>()(
             },
           };
         }),
-    }),
+
 
       importCharts: (incoming, mode) => {
         let count = 0;
