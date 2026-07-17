@@ -241,13 +241,13 @@ function ChartEditor() {
           className="max-w-xs border-transparent bg-transparent text-base font-semibold shadow-none focus-visible:border-input focus-visible:bg-background"
         />
 
-        <div className="relative hidden sm:block">
+        <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search tasks"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-9 w-56 pl-9 pr-8"
+            className="h-9 w-40 sm:w-56 pl-9 pr-8"
           />
           {searchQuery && (
             <Button
