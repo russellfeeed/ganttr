@@ -110,6 +110,9 @@ function ChartEditor() {
   const [teamFilter, setTeamFilter] = useState<string>("__all__");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [capacityCell, setCapacityCell] = useState<
+    { teamId: string; roleId: string; week: number } | null
+  >(null);
   const [searchQuery, setSearchQuery] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = useState<{
