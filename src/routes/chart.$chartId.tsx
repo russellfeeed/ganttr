@@ -33,6 +33,8 @@ import {
   Rows3,
   Search,
   X,
+  TriangleAlert,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -45,7 +47,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useGanttStore, TASK_COLORS, computeChartSignature, type Task, type Team } from "@/lib/gantt-store";
+import { useGanttStore, TASK_COLORS, computeChartSignature, type Task, type Team, type Role } from "@/lib/gantt-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,7 +87,7 @@ const ZOOM_LEVELS = [
   { label: "Wide", width: 104 },
 ];
 
-type ViewMode = "list" | "swimlanes";
+type ViewMode = "list" | "swimlanes" | "capacity";
 type DisplayRow =
   | { kind: "header"; team: Team | null; count: number; key: string }
   | { kind: "task"; task: Task; key: string };
@@ -121,6 +123,11 @@ function ChartEditor() {
     renameTeam,
     setTeamColor,
     deleteTeam,
+    addRole,
+    renameRole,
+    setRoleHeadcount,
+    deleteRole,
+    setTaskDemand,
     markChartExported,
   } = useGanttStore.getState();
 
@@ -172,7 +179,7 @@ function ChartEditor() {
   }, [chart?.tasks, tagFilter, teamFilter, normalizedSearch]);
 
   const displayRows = useMemo<DisplayRow[]>(() => {
-    if (viewMode === "list") {
+    if (viewMode === "list" || viewMode === "capacity") {
       return visibleTasks.map((t) => ({ kind: "task", task: t, key: t.id }));
     }
     const rows: DisplayRow[] = [];
@@ -198,6 +205,59 @@ function ChartEditor() {
     }
     return rows;
   }, [viewMode, visibleTasks, teams]);
+
+  // Per-week demand per team+role, computed from visible tasks
+  // Shape: Map<teamId, Map<roleId, number[]>> where number[][week] = total quantity
+  const demandByWeek = useMemo(() => {
+    const map = new Map<string, Map<string, number[]>>();
+    for (const task of visibleTasks) {
+      if (!task.teamId || !task.demands || task.demands.length === 0) continue;
+      let teamMap = map.get(task.teamId);
+      if (!teamMap) {
+        teamMap = new Map();
+        map.set(task.teamId, teamMap);
+      }
+      for (const d of task.demands) {
+        if (d.quantity <= 0) continue;
+        let arr = teamMap.get(d.roleId);
+        if (!arr) {
+          arr = new Array(totalWeeks).fill(0);
+          teamMap.set(d.roleId, arr);
+        }
+        const end = Math.min(totalWeeks, task.startWeek + task.durationWeeks);
+        for (let w = Math.max(0, task.startWeek); w < end; w++) arr[w] += d.quantity;
+      }
+    }
+    return map;
+  }, [visibleTasks, totalWeeks]);
+
+  // Task-level overallocation lookup for warning icons
+  const overallocatedTaskIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const task of visibleTasks) {
+      if (!task.teamId || !task.demands || task.demands.length === 0) continue;
+      const team = teams.find((t) => t.id === task.teamId);
+      if (!team) continue;
+      const roleCap = new Map<string, number>();
+      for (const r of team.roles ?? []) roleCap.set(r.id, r.headcount);
+      const teamMap = demandByWeek.get(task.teamId);
+      if (!teamMap) continue;
+      const end = Math.min(totalWeeks, task.startWeek + task.durationWeeks);
+      outer: for (const d of task.demands) {
+        if (d.quantity <= 0) continue;
+        const cap = roleCap.get(d.roleId) ?? 0;
+        const arr = teamMap.get(d.roleId);
+        if (!arr) continue;
+        for (let w = Math.max(0, task.startWeek); w < end; w++) {
+          if (arr[w] > cap) {
+            set.add(task.id);
+            break outer;
+          }
+        }
+      }
+    }
+    return set;
+  }, [visibleTasks, teams, demandByWeek, totalWeeks]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -316,6 +376,14 @@ function ChartEditor() {
             >
               <Rows3 className="mr-1 h-3.5 w-3.5" /> Swimlanes
             </Button>
+            <Button
+              variant={viewMode === "capacity" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setViewMode("capacity")}
+            >
+              <BarChart3 className="mr-1 h-3.5 w-3.5" /> Capacity
+            </Button>
           </div>
 
           {/* Teams manager */}
@@ -330,13 +398,19 @@ function ChartEditor() {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 p-3" align="end">
+            <PopoverContent className="w-[420px] p-3" align="end">
               <TeamsManager
                 teams={teams}
                 onAdd={(name) => addTeam(chart.id, name)}
                 onRename={(id, name) => renameTeam(chart.id, id, name)}
                 onSetColor={(id, c) => setTeamColor(chart.id, id, c)}
                 onDelete={(id) => deleteTeam(chart.id, id)}
+                onAddRole={(teamId, name, headcount) => addRole(chart.id, teamId, name, headcount)}
+                onRenameRole={(teamId, roleId, name) => renameRole(chart.id, teamId, roleId, name)}
+                onSetRoleHeadcount={(teamId, roleId, hc) =>
+                  setRoleHeadcount(chart.id, teamId, roleId, hc)
+                }
+                onDeleteRole={(teamId, roleId) => deleteRole(chart.id, teamId, roleId)}
               />
             </PopoverContent>
           </Popover>
@@ -512,7 +586,7 @@ function ChartEditor() {
                   chart,
                   rows: pdfRows,
                   totalWeeks,
-                  viewMode,
+                  viewMode: viewMode === "capacity" ? "list" : viewMode,
                 });
                 toast.success("PDF exported");
                 markChartExported(chart.id);
@@ -543,6 +617,15 @@ function ChartEditor() {
       </header>
 
       {/* Main split */}
+      {viewMode === "capacity" ? (
+        <CapacityHeatmap
+          teams={teams}
+          totalWeeks={totalWeeks}
+          weekWidth={weekWidth}
+          chartStart={chartStart}
+          demandByWeek={demandByWeek}
+        />
+      ) : (
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel */}
         <div className="flex flex-col border-r border-border" style={{ width: LEFT_PANEL }}>
@@ -581,6 +664,7 @@ function ChartEditor() {
                         task={row.task}
                         team={teams.find((t) => t.id === row.task.teamId) ?? null}
                         selected={selectedTaskId === row.task.id}
+                        overallocated={overallocatedTaskIds.has(row.task.id)}
                         onSelect={() => setSelectedTaskId(row.task.id)}
                       />
                     ) : null,
@@ -611,6 +695,7 @@ function ChartEditor() {
                       task={row.task}
                       team={teams.find((t) => t.id === row.task.teamId) ?? null}
                       selected={selectedTaskId === row.task.id}
+                      overallocated={overallocatedTaskIds.has(row.task.id)}
                       onSelect={() => setSelectedTaskId(row.task.id)}
                     />
                   ),
@@ -660,6 +745,7 @@ function ChartEditor() {
             chartTasks={chart.tasks}
             teams={teams}
             onChange={(patch) => updateTask(chart.id, selectedTask.id, patch)}
+            onSetDemand={(roleId, qty) => setTaskDemand(chart.id, selectedTask.id, roleId, qty)}
             onDelete={() => {
               deleteTask(chart.id, selectedTask.id);
               setSelectedTaskId(null);
@@ -668,6 +754,7 @@ function ChartEditor() {
           />
         )}
       </div>
+      )}
 
       <AlertDialog
         open={pendingImport !== null}
@@ -719,69 +806,86 @@ function TeamsManager({
   onRename,
   onSetColor,
   onDelete,
+  onAddRole,
+  onRenameRole,
+  onSetRoleHeadcount,
+  onDeleteRole,
 }: {
   teams: Team[];
   onAdd: (name: string) => string;
   onRename: (id: string, name: string) => void;
   onSetColor: (id: string, color: string) => void;
   onDelete: (id: string) => void;
+  onAddRole: (teamId: string, name: string, headcount: number) => string;
+  onRenameRole: (teamId: string, roleId: string, name: string) => void;
+  onSetRoleHeadcount: (teamId: string, roleId: string, headcount: number) => void;
+  onDeleteRole: (teamId: string, roleId: string) => void;
 }) {
   const [draft, setDraft] = useState("");
   return (
     <div className="space-y-3">
       <div>
-        <h4 className="text-sm font-semibold">Teams</h4>
+        <h4 className="text-sm font-semibold">Teams &amp; roles</h4>
         <p className="text-xs text-muted-foreground">
-          Assign tasks to a team, then switch to Swimlanes view to group them.
+          Assign tasks to a team, then define roles and headcount for capacity planning.
         </p>
       </div>
-      <div className="space-y-2 max-h-64 overflow-y-auto">
+      <div className="space-y-3 max-h-[420px] overflow-y-auto">
         {teams.length === 0 && (
           <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
             No teams yet — add one below.
           </div>
         )}
         {teams.map((team) => (
-          <div key={team.id} className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  className="h-6 w-6 shrink-0 rounded-sm border border-border"
-                  style={{ backgroundColor: team.color }}
-                  aria-label="Change color"
-                />
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-2" align="start">
-                <div className="flex flex-wrap gap-1.5 max-w-[180px]">
-                  {TASK_COLORS.map((c) => (
-                    <button
-                      key={c.value}
-                      onClick={() => onSetColor(team.id, c.value)}
-                      className={cn(
-                        "h-6 w-6 rounded-sm border-2",
-                        team.color === c.value ? "border-foreground" : "border-transparent",
-                      )}
-                      style={{ backgroundColor: c.value }}
-                      aria-label={c.name}
-                    />
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-            <Input
-              value={team.name}
-              onChange={(e) => onRename(team.id, e.target.value)}
-              className="h-8 text-sm"
+          <div key={team.id} className="rounded-md border border-border p-2 space-y-2">
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className="h-6 w-6 shrink-0 rounded-sm border border-border"
+                    style={{ backgroundColor: team.color }}
+                    aria-label="Change color"
+                  />
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-2" align="start">
+                  <div className="flex flex-wrap gap-1.5 max-w-[180px]">
+                    {TASK_COLORS.map((c) => (
+                      <button
+                        key={c.value}
+                        onClick={() => onSetColor(team.id, c.value)}
+                        className={cn(
+                          "h-6 w-6 rounded-sm border-2",
+                          team.color === c.value ? "border-foreground" : "border-transparent",
+                        )}
+                        style={{ backgroundColor: c.value }}
+                        aria-label={c.name}
+                      />
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Input
+                value={team.name}
+                onChange={(e) => onRename(team.id, e.target.value)}
+                className="h-8 text-sm"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => onDelete(team.id)}
+                aria-label="Delete team"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <TeamRolesEditor
+              team={team}
+              onAddRole={onAddRole}
+              onRenameRole={onRenameRole}
+              onSetRoleHeadcount={onSetRoleHeadcount}
+              onDeleteRole={onDeleteRole}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0"
-              onClick={() => onDelete(team.id)}
-              aria-label="Delete team"
-            >
-              <X className="h-4 w-4" />
-            </Button>
           </div>
         ))}
       </div>
@@ -803,6 +907,88 @@ function TeamsManager({
         />
         <Button type="submit" size="sm" disabled={!draft.trim()}>
           <Plus className="h-4 w-4" />
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+function TeamRolesEditor({
+  team,
+  onAddRole,
+  onRenameRole,
+  onSetRoleHeadcount,
+  onDeleteRole,
+}: {
+  team: Team;
+  onAddRole: (teamId: string, name: string, headcount: number) => string;
+  onRenameRole: (teamId: string, roleId: string, name: string) => void;
+  onSetRoleHeadcount: (teamId: string, roleId: string, headcount: number) => void;
+  onDeleteRole: (teamId: string, roleId: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [count, setCount] = useState(1);
+  const roles = team.roles ?? [];
+  return (
+    <div className="pl-8 space-y-1.5">
+      {roles.length === 0 && (
+        <p className="text-[11px] text-muted-foreground">No roles yet.</p>
+      )}
+      {roles.map((r) => (
+        <div key={r.id} className="flex items-center gap-1.5">
+          <Input
+            value={r.name}
+            onChange={(e) => onRenameRole(team.id, r.id, e.target.value)}
+            className="h-7 text-xs flex-1"
+          />
+          <Input
+            type="number"
+            min={0}
+            value={r.headcount}
+            onChange={(e) =>
+              onSetRoleHeadcount(team.id, r.id, Math.max(0, parseInt(e.target.value) || 0))
+            }
+            className="h-7 w-14 text-xs"
+            aria-label="Headcount"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={() => onDeleteRole(team.id, r.id)}
+            aria-label="Delete role"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ))}
+      <form
+        className="flex items-center gap-1.5 pt-1"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const n = name.trim();
+          if (!n) return;
+          onAddRole(team.id, n, count);
+          setName("");
+          setCount(1);
+        }}
+      >
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Add role"
+          className="h-7 text-xs flex-1"
+        />
+        <Input
+          type="number"
+          min={0}
+          value={count}
+          onChange={(e) => setCount(Math.max(0, parseInt(e.target.value) || 0))}
+          className="h-7 w-14 text-xs"
+          aria-label="Headcount"
+        />
+        <Button type="submit" size="sm" variant="outline" className="h-7 px-2" disabled={!name.trim()}>
+          <Plus className="h-3.5 w-3.5" />
         </Button>
       </form>
     </div>
@@ -861,11 +1047,13 @@ function TaskRow({
   task,
   team,
   selected,
+  overallocated,
   onSelect,
 }: {
   task: Task;
   team: Team | null;
   selected: boolean;
+  overallocated?: boolean;
   onSelect: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -896,7 +1084,7 @@ function TaskRow({
       >
         <GripVertical className="h-4 w-4" />
       </button>
-      <TaskRowBody task={task} team={team} />
+      <TaskRowBody task={task} team={team} overallocated={overallocated} />
     </div>
   );
 }
@@ -907,11 +1095,13 @@ function TaskRowStatic({
   task,
   team,
   selected,
+  overallocated,
   onSelect,
 }: {
   task: Task;
   team: Team | null;
   selected: boolean;
+  overallocated?: boolean;
   onSelect: () => void;
 }) {
   return (
@@ -929,12 +1119,21 @@ function TaskRowStatic({
       )}
       title="Drag onto a team lane to assign"
     >
-      <TaskRowBody task={task} team={team} />
+      <TaskRowBody task={task} team={team} overallocated={overallocated} />
     </div>
   );
 }
 
-function TaskRowBody({ task, team }: { task: Task; team: Team | null }) {
+
+function TaskRowBody({
+  task,
+  team,
+  overallocated,
+}: {
+  task: Task;
+  team: Team | null;
+  overallocated?: boolean;
+}) {
   return (
     <>
       <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: task.color }} />
@@ -945,6 +1144,12 @@ function TaskRowBody({ task, team }: { task: Task; team: Team | null }) {
             <Badge variant="outline" className="h-4 shrink-0 px-1 text-[9px] border-dashed">
               TBC
             </Badge>
+          )}
+          {overallocated && (
+            <TriangleAlert
+              className="h-3.5 w-3.5 shrink-0 text-amber-500"
+              aria-label="Overallocated"
+            />
           )}
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -1325,6 +1530,7 @@ function TaskEditor({
   chartTasks,
   teams,
   onChange,
+  onSetDemand,
   onDelete,
   onClose,
 }: {
@@ -1332,10 +1538,14 @@ function TaskEditor({
   chartTasks: Task[];
   teams: Team[];
   onChange: (patch: Partial<Task>) => void;
+  onSetDemand: (roleId: string, quantity: number) => void;
   onDelete: () => void;
   onClose: () => void;
 }) {
   const otherTasks = chartTasks.filter((t) => t.id !== task.id);
+  const currentTeam = task.teamId ? teams.find((t) => t.id === task.teamId) : null;
+  const demandFor = (roleId: string) =>
+    task.demands?.find((d) => d.roleId === roleId)?.quantity ?? 0;
   return (
     <aside className="w-80 shrink-0 border-l border-border bg-card p-5 overflow-y-auto">
       <div className="flex items-center justify-between mb-4">
@@ -1479,6 +1689,37 @@ function TaskEditor({
           />
         </div>
 
+        {currentTeam && (
+          <div className="space-y-2">
+            <Label className="text-xs">Resource demand</Label>
+            {(currentTeam.roles ?? []).length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">
+                No roles defined for this team. Add roles in the Teams menu.
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {currentTeam.roles.map((r) => (
+                  <div key={r.id} className="flex items-center gap-2">
+                    <span className="text-xs flex-1 truncate">{r.name}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      /{r.headcount}
+                    </span>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={demandFor(r.id)}
+                      onChange={(e) =>
+                        onSetDemand(r.id, Math.max(0, parseInt(e.target.value) || 0))
+                      }
+                      className="h-7 w-16 text-xs"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <Button variant="destructive" size="sm" className="w-full" onClick={onDelete}>
           <Trash2 className="mr-1.5 h-4 w-4" /> Delete task
         </Button>
@@ -1487,5 +1728,135 @@ function TaskEditor({
   );
 }
 
+/* ---------------- Capacity heatmap view ---------------- */
+
+function CapacityHeatmap({
+  teams,
+  totalWeeks,
+  weekWidth,
+  chartStart,
+  demandByWeek,
+}: {
+  teams: Team[];
+  totalWeeks: number;
+  weekWidth: number;
+  chartStart: Date;
+  demandByWeek: Map<string, Map<string, number[]>>;
+}) {
+  const teamsWithRoles = teams.filter((t) => (t.roles ?? []).length > 0);
+  const NAME_COL = 240;
+
+  const ratioColor = (ratio: number) => {
+    if (ratio <= 0) return "hsl(var(--muted) / 0.3)";
+    if (ratio <= 0.5) return "hsl(142 70% 45% / 0.35)";
+    if (ratio <= 0.85) return "hsl(142 70% 45% / 0.7)";
+    if (ratio <= 1) return "hsl(38 92% 50% / 0.75)";
+    return "hsl(0 84% 60% / 0.85)";
+  };
+
+  return (
+    <div className="flex flex-1 overflow-hidden">
+      <div className="flex-1 overflow-auto">
+        {teamsWithRoles.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            Add roles with headcount to teams in the Teams menu to see capacity here.
+          </div>
+        ) : (
+          <div className="min-w-max">
+            {/* Header */}
+            <div
+              className="sticky top-0 z-10 flex border-b border-border bg-background"
+              style={{ height: HEADER_HEIGHT }}
+            >
+              <div
+                className="shrink-0 border-r border-border px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+                style={{ width: NAME_COL }}
+              >
+                Team / Role
+              </div>
+              <div className="flex">
+                {Array.from({ length: totalWeeks }).map((_, w) => (
+                  <div
+                    key={w}
+                    className="shrink-0 border-r border-border px-1 py-1 text-[10px] text-muted-foreground text-center"
+                    style={{ width: weekWidth }}
+                  >
+                    {format(addWeeks(chartStart, w), "MMM d")}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Rows */}
+            {teamsWithRoles.map((team) => (
+              <div key={team.id}>
+                <div
+                  className="flex border-b border-border bg-muted/40"
+                  style={{ height: ROW_HEIGHT * 0.7 }}
+                >
+                  <div
+                    className="flex items-center gap-2 shrink-0 px-3 text-xs font-semibold"
+                    style={{ width: NAME_COL }}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-sm"
+                      style={{ backgroundColor: team.color }}
+                    />
+                    {team.name}
+                  </div>
+                  <div style={{ width: totalWeeks * weekWidth }} />
+                </div>
+                {team.roles.map((role) => {
+                  const arr = demandByWeek.get(team.id)?.get(role.id);
+                  return (
+                    <div
+                      key={role.id}
+                      className="flex border-b border-border"
+                      style={{ height: ROW_HEIGHT }}
+                    >
+                      <div
+                        className="flex items-center justify-between shrink-0 border-r border-border px-3 text-xs"
+                        style={{ width: NAME_COL }}
+                      >
+                        <span className="truncate">{role.name}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          cap {role.headcount}
+                        </span>
+                      </div>
+                      <div className="flex">
+                        {Array.from({ length: totalWeeks }).map((_, w) => {
+                          const used = arr?.[w] ?? 0;
+                          const cap = role.headcount;
+                          const ratio = cap > 0 ? used / cap : used > 0 ? 2 : 0;
+                          const over = cap > 0 && used > cap;
+                          return (
+                            <div
+                              key={w}
+                              className="shrink-0 border-r border-border flex items-center justify-center text-[10px]"
+                              style={{
+                                width: weekWidth,
+                                backgroundColor: ratioColor(ratio),
+                                color: ratio > 0.85 ? "white" : undefined,
+                              }}
+                              title={`Week ${w + 1}: ${used}/${cap}${over ? " (over)" : ""}`}
+                            >
+                              {used > 0 ? `${used}/${cap}` : ""}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Keep import used to avoid unused warning (helper reserved for future date input)
 void differenceInCalendarWeeks;
+
