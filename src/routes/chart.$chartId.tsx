@@ -498,7 +498,20 @@ function ChartEditor() {
               <div>
                 {displayRows.map((row) =>
                   row.kind === "header" ? (
-                    <LaneHeader key={row.key} team={row.team} count={row.count} />
+                    <LaneHeader
+                      key={row.key}
+                      team={row.team}
+                      count={row.count}
+                      onDropTask={(taskId) => {
+                        const targetTeamId = row.team?.id;
+                        const t = chart.tasks.find((x) => x.id === taskId);
+                        if (!t) return;
+                        if ((t.teamId ?? undefined) === targetTeamId) return;
+                        const patch: Partial<Task> = { teamId: targetTeamId };
+                        if (row.team) patch.color = row.team.color;
+                        updateTask(chart.id, taskId, patch);
+                      }}
+                    />
                   ) : (
                     <TaskRowStatic
                       key={row.key}
@@ -694,10 +707,36 @@ function TeamsManager({
 
 /* ---------------- Lane header (swimlane mode) ---------------- */
 
-function LaneHeader({ team, count }: { team: Team | null; count: number }) {
+function LaneHeader({
+  team,
+  count,
+  onDropTask,
+}: {
+  team: Team | null;
+  count: number;
+  onDropTask: (taskId: string) => void;
+}) {
+  const [over, setOver] = useState(false);
   return (
     <div
-      className="flex items-center gap-2 border-b border-border bg-muted/40 px-3"
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("application/x-task-id")) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          if (!over) setOver(true);
+        }
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        const taskId = e.dataTransfer.getData("application/x-task-id");
+        if (taskId) onDropTask(taskId);
+      }}
+      className={cn(
+        "flex items-center gap-2 border-b border-border bg-muted/40 px-3",
+        over && "bg-accent ring-1 ring-inset ring-primary",
+      )}
       style={{ height: HEADER_ROW_HEIGHT }}
     >
       <span
@@ -773,12 +812,18 @@ function TaskRowStatic({
 }) {
   return (
     <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("application/x-task-id", task.id);
+      }}
       onClick={onSelect}
       style={{ height: ROW_HEIGHT }}
       className={cn(
-        "flex items-center gap-2 border-b border-border pl-6 pr-2 cursor-pointer",
+        "flex items-center gap-2 border-b border-border pl-6 pr-2 cursor-grab active:cursor-grabbing",
         selected && "bg-accent",
       )}
+      title="Drag onto a team lane to assign"
     >
       <TaskRowBody task={task} team={team} />
     </div>
