@@ -26,6 +26,7 @@ import {
   ZoomIn,
   ZoomOut,
   Download,
+  FileDown,
   Upload,
   Users,
   List,
@@ -59,6 +60,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { exportChartToPdf, type PdfRow } from "@/lib/export-pdf";
 
 export const Route = createFileRoute("/chart/$chartId")({
   head: () => ({
@@ -446,7 +448,32 @@ function ChartEditor() {
               );
             }}
           >
-            <Download className="mr-1 h-4 w-4" /> Export
+            <Download className="mr-1 h-4 w-4" /> JSON
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              try {
+                const pdfRows: PdfRow[] = displayRows.map((r) =>
+                  r.kind === "header"
+                    ? { kind: "header", team: r.team, count: r.count }
+                    : { kind: "task", task: r.task },
+                );
+                exportChartToPdf({
+                  chart,
+                  rows: pdfRows,
+                  totalWeeks,
+                  viewMode,
+                });
+                toast.success("PDF exported");
+              } catch (err) {
+                console.error(err);
+                toast.error("Couldn't export PDF");
+              }
+            }}
+          >
+            <FileDown className="mr-1 h-4 w-4" /> PDF
           </Button>
           <Button
             size="sm"
