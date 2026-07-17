@@ -18,7 +18,7 @@ const PAGE_W = 297;
 const PAGE_H = 210;
 const MARGIN = 10;
 const HEADER_H = 16;
-const WEEK_HEADER_H = 10;
+const TIMELINE_HEADER_H = 10;
 const ROW_H = 7;
 const LEFT_PANEL_W = 78;
 
@@ -35,6 +35,27 @@ function truncate(doc: jsPDF, text: string, maxW: number): string {
   return s + "…";
 }
 
+type MonthColumn = {
+  startWeek: number;
+  weekCount: number;
+  label: string;
+};
+
+function buildMonthColumns(chartStart: Date, totalWeeks: number): MonthColumn[] {
+  const months: MonthColumn[] = [];
+  for (let w = 0; w < totalWeeks; w++) {
+    const date = addWeeks(chartStart, w);
+    const label = format(date, "MMM yyyy");
+    const last = months[months.length - 1];
+    if (!last || last.label !== label) {
+      months.push({ startWeek: w, weekCount: 1, label });
+    } else {
+      last.weekCount++;
+    }
+  }
+  return months;
+}
+
 export function exportChartToPdf({ chart, rows, totalWeeks, viewMode }: Opts) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
 
@@ -42,11 +63,12 @@ export function exportChartToPdf({ chart, rows, totalWeeks, viewMode }: Opts) {
   const timelineW = PAGE_W - MARGIN - timelineX;
   const weekW = timelineW / Math.max(1, totalWeeks);
 
-  const contentTop = MARGIN + HEADER_H + WEEK_HEADER_H;
+  const contentTop = MARGIN + HEADER_H + TIMELINE_HEADER_H;
   const contentBottom = PAGE_H - MARGIN;
   const rowsPerPage = Math.max(1, Math.floor((contentBottom - contentTop) / ROW_H));
 
   const chartStart = new Date(chart.startDate);
+  const months = buildMonthColumns(chartStart, totalWeeks);
 
   const drawHeader = (pageNum: number, totalPages: number) => {
     // Title
@@ -66,41 +88,44 @@ export function exportChartToPdf({ chart, rows, totalWeeks, viewMode }: Opts) {
       doc.text(p, PAGE_W - MARGIN - doc.getTextWidth(p), MARGIN + 6);
     }
 
-    // Week header row
+    // Month header row
     const yTop = MARGIN + HEADER_H;
     // Left panel label
     doc.setDrawColor(220);
     doc.setFillColor(245, 245, 247);
-    doc.rect(MARGIN, yTop, LEFT_PANEL_W, WEEK_HEADER_H, "F");
+    doc.rect(MARGIN, yTop, LEFT_PANEL_W, TIMELINE_HEADER_H, "F");
     doc.setFontSize(9);
     doc.setTextColor(60, 60, 60);
     doc.setFont("helvetica", "bold");
     doc.text("Task", MARGIN + 2, yTop + 6);
 
-    // Week cells
+    // Month cells
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    for (let w = 0; w < totalWeeks; w++) {
-      const x = timelineX + w * weekW;
-      doc.setFillColor(w % 2 === 0 ? 250 : 245, w % 2 === 0 ? 250 : 245, w % 2 === 0 ? 252 : 247);
-      doc.rect(x, yTop, weekW, WEEK_HEADER_H, "F");
+    doc.setFontSize(8);
+    for (let i = 0; i < months.length; i++) {
+      const month = months[i];
+      const x = timelineX + month.startWeek * weekW;
+      const w = month.weekCount * weekW;
+      doc.setFillColor(i % 2 === 0 ? 250 : 245, i % 2 === 0 ? 250 : 245, i % 2 === 0 ? 252 : 247);
+      doc.rect(x, yTop, w, TIMELINE_HEADER_H, "F");
       doc.setDrawColor(225);
-      doc.line(x, yTop, x, yTop + WEEK_HEADER_H);
-      const monday = addWeeks(chartStart, w);
+      doc.line(x, yTop, x, yTop + TIMELINE_HEADER_H);
+      // Week separator lines inside the month (subtle)
+      doc.setDrawColor(235);
+      for (let k = 1; k < month.weekCount; k++) {
+        const wx = x + k * weekW;
+        doc.line(wx, yTop, wx, yTop + TIMELINE_HEADER_H);
+      }
       doc.setTextColor(80, 80, 80);
-      // Only label every N weeks to avoid crowding
-      const labelEvery = weekW < 8 ? 4 : weekW < 14 ? 2 : 1;
-      if (w % labelEvery === 0) {
-        const label = format(monday, weekW < 14 ? "M/d" : "MMM d");
-        const tw = doc.getTextWidth(label);
-        if (tw < weekW - 1) {
-          doc.text(label, x + (weekW - tw) / 2, yTop + 6);
-        }
+      const label = truncate(doc, month.label, w - 2);
+      const tw = doc.getTextWidth(label);
+      if (tw < w - 1) {
+        doc.text(label, x + (w - tw) / 2, yTop + 6);
       }
     }
     // Border around header
     doc.setDrawColor(200);
-    doc.rect(MARGIN, yTop, LEFT_PANEL_W + timelineW, WEEK_HEADER_H);
+    doc.rect(MARGIN, yTop, LEFT_PANEL_W + timelineW, TIMELINE_HEADER_H);
   };
 
   const drawRow = (row: PdfRow, y: number) => {
@@ -135,11 +160,12 @@ export function exportChartToPdf({ chart, rows, totalWeeks, viewMode }: Opts) {
     const dur = `${task.durationWeeks}w`;
     doc.text(dur, MARGIN + LEFT_PANEL_W - 2 - doc.getTextWidth(dur), y + 4.5);
 
-    // Timeline background zebra
-    for (let w = 0; w < totalWeeks; w++) {
-      if (w % 2 === 1) {
+    // Timeline background zebra by month
+    for (let i = 0; i < months.length; i++) {
+      if (i % 2 === 1) {
+        const m = months[i];
         doc.setFillColor(250, 250, 252);
-        doc.rect(timelineX + w * weekW, y, weekW, ROW_H, "F");
+        doc.rect(timelineX + m.startWeek * weekW, y, m.weekCount * weekW, ROW_H, "F");
       }
     }
     // Bar
@@ -175,9 +201,9 @@ export function exportChartToPdf({ chart, rows, totalWeeks, viewMode }: Opts) {
     }
     // Outer border for timeline area
     doc.setDrawColor(210);
-    doc.rect(MARGIN, MARGIN + HEADER_H, LEFT_PANEL_W + timelineW, WEEK_HEADER_H + slice.length * ROW_H);
+    doc.rect(MARGIN, MARGIN + HEADER_H, LEFT_PANEL_W + timelineW, TIMELINE_HEADER_H + slice.length * ROW_H);
     // Vertical divider between panel and timeline
-    doc.line(timelineX, MARGIN + HEADER_H, timelineX, MARGIN + HEADER_H + WEEK_HEADER_H + slice.length * ROW_H);
+    doc.line(timelineX, MARGIN + HEADER_H, timelineX, MARGIN + HEADER_H + TIMELINE_HEADER_H + slice.length * ROW_H);
   }
 
   const safe = (chart.name || "chart").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "chart";
