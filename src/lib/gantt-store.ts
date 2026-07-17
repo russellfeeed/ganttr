@@ -263,10 +263,12 @@ export const useGanttStore = create<State & Actions>()(
             idMap[t.id] = newId;
             return { ...t, id: newId };
           });
-          // Fix dependsOn references within the imported set
+          // Fix dependsOn references within the imported set + sanitize teamId
+          const knownTeamIds = new Set((chart.teams ?? []).map((t) => t.id));
           for (const t of remapped) {
             if (t.dependsOn && idMap[t.dependsOn]) t.dependsOn = idMap[t.dependsOn];
             else if (t.dependsOn && !existingIds.has(t.dependsOn)) t.dependsOn = undefined;
+            if (t.teamId && !knownTeamIds.has(t.teamId)) t.teamId = undefined;
           }
           const nextTasks = mode === "replace" ? remapped : [...chart.tasks, ...remapped];
           count = remapped.length;
