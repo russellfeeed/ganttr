@@ -308,7 +308,10 @@ export const useGanttStore = create<State & Actions>()(
               ...src,
               id: newId,
               teams: (src.teams ?? []).map((t) => ({ ...t, roles: t.roles ?? [] })),
-              tasks: (src.tasks ?? []).map((t) => ({ ...t, demands: t.demands ?? [] })),
+              tasks: (src.tasks ?? []).map((t: any) => {
+                const { tag, ...rest } = t;
+                return { ...rest, demands: t.demands ?? [], tags: normalizeTags(t.tags, tag) };
+              }),
             };
             prepended.push(newId);
             count++;
