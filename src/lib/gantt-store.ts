@@ -130,7 +130,7 @@ export function computeChartSignature(chart: Chart): string {
       t.startWeek,
       t.durationWeeks,
       t.color,
-      t.tag ?? "",
+      t.tags?.join("|") ?? "",
       t.dependsOn ?? "",
       t.teamId ?? "",
       t.tbc ? 1 : 0,
