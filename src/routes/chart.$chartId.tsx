@@ -1611,17 +1611,18 @@ function TaskBar({
             <span className="text-muted-foreground">Team: </span>
             <span className="font-medium">{team?.name ?? "No team"}</span>
           </div>
-          {(task.tag || task.tbc) && (
+          {((task.tags?.length ?? 0) > 0 || task.tbc) && (
             <div className="flex flex-wrap gap-1 pt-0.5">
-              {task.tag && (
+              {(task.tags ?? []).map((tag) => (
                 <Badge
+                  key={tag}
                   variant="secondary"
                   className="h-4 px-1.5 text-[10px] text-white border-0"
                   style={{ backgroundColor: task.color }}
                 >
-                  {task.tag}
+                  {tag}
                 </Badge>
-              )}
+              ))}
               {task.tbc && (
                 <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
                   To be confirmed
