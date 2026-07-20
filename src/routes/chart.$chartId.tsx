@@ -2075,6 +2075,9 @@ function CapacityCellDialog({
   tasks,
   chartStart,
   onOpenTask,
+  onSetDemand,
+  onRenameRole,
+  onSetRoleHeadcount,
 }: {
   cell: { teamId: string; roleId: string; week: number } | null;
   onOpenChange: (open: boolean) => void;
@@ -2082,6 +2085,9 @@ function CapacityCellDialog({
   tasks: Task[];
   chartStart: Date;
   onOpenTask: (taskId: string) => void;
+  onSetDemand: (taskId: string, roleId: string, qty: number) => void;
+  onRenameRole: (teamId: string, roleId: string, name: string) => void;
+  onSetRoleHeadcount: (teamId: string, roleId: string, hc: number) => void;
 }) {
   const open = cell !== null;
   const team = cell ? teams.find((t) => t.id === cell.teamId) ?? null : null;
@@ -2097,12 +2103,12 @@ function CapacityCellDialog({
         )
         .map((t) => {
           const d = t.demands?.find((d) => d.roleId === cell.roleId);
-          return d && d.quantity > 0 ? { task: t, qty: d.quantity } : null;
+          return { task: t, qty: d?.quantity ?? 0 };
         })
-        .filter((v): v is { task: Task; qty: number } => v !== null)
     : [];
 
-  const used = contributing.reduce((s, c) => s + c.qty, 0);
+  const activeContribs = contributing.filter((c) => c.qty > 0);
+  const used = activeContribs.reduce((s, c) => s + c.qty, 0);
   const cap = role?.headcount ?? 0;
   const over = cap > 0 && used > cap;
   const atCap = cap > 0 && used === cap;
@@ -2118,19 +2124,19 @@ function CapacityCellDialog({
     reasons.push(
       `Demand exceeds capacity by ${overBy} (${used} needed, ${cap} available).`,
     );
-    if (contributing.length > 1) {
+    if (activeContribs.length > 1) {
       reasons.push(
-        `${contributing.length} tasks running simultaneously in this week compete for the same role.`,
+        `${activeContribs.length} tasks running simultaneously in this week compete for the same role.`,
       );
     }
-    const heavy = contributing.filter((c) => c.qty > cap);
+    const heavy = activeContribs.filter((c) => c.qty > cap);
     for (const h of heavy) {
       reasons.push(
         `"${h.task.name}" alone demands ${h.qty}, more than the ${cap}-person capacity.`,
       );
     }
-    if (contributing.length > 1 && heavy.length === 0) {
-      const top = [...contributing].sort((a, b) => b.qty - a.qty).slice(0, 2);
+    if (activeContribs.length > 1 && heavy.length === 0) {
+      const top = [...activeContribs].sort((a, b) => b.qty - a.qty).slice(0, 2);
       reasons.push(
         `Biggest contributors: ${top.map((t) => `"${t.task.name}" (${t.qty})`).join(", ")}.`,
       );
@@ -2140,6 +2146,11 @@ function CapacityCellDialog({
   const weekLabel = cell
     ? `Week of ${format(addWeeks(chartStart, cell.week), "d MMM yyyy")}`
     : "";
+
+  const [roleNameDraft, setRoleNameDraft] = useState("");
+  useEffect(() => {
+    setRoleNameDraft(role?.name ?? "");
+  }, [role?.id, role?.name]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -2177,6 +2188,46 @@ function CapacityCellDialog({
           </ul>
         )}
 
+        {cell && role && team && (
+          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 space-y-2">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Team capacity
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                value={roleNameDraft}
+                onChange={(e) => setRoleNameDraft(e.target.value)}
+                onBlur={() => {
+                  const v = roleNameDraft.trim();
+                  if (v && v !== role.name) onRenameRole(team.id, role.id, v);
+                  else setRoleNameDraft(role.name);
+                }}
+                className="h-8 flex-1"
+                placeholder="Role name"
+              />
+              <div className="flex items-center gap-1">
+                <Label htmlFor="cap-hc" className="text-xs text-muted-foreground">
+                  Headcount
+                </Label>
+                <Input
+                  id="cap-hc"
+                  type="number"
+                  min={0}
+                  max={999}
+                  value={cap}
+                  onChange={(e) => {
+                    const n = Math.max(0, Math.min(999, Number(e.target.value) || 0));
+                    onSetRoleHeadcount(team.id, role.id, n);
+                  }}
+                  className="h-8 w-16"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Headcount applies to every week for this role.
+            </p>
+          </div>
+        )}
 
         {contributing.length === 0 ? (
           <div className="py-6 text-center text-sm text-muted-foreground">
@@ -2191,11 +2242,9 @@ function CapacityCellDialog({
                 "d MMM",
               );
               return (
-                <button
+                <div
                   key={task.id}
-                  type="button"
-                  onClick={() => onOpenTask(task.id)}
-                  className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted/60 focus:outline-none focus:bg-muted/60"
+                  className="flex items-center gap-3 px-3 py-2"
                 >
                   <span
                     className="h-3 w-3 shrink-0 rounded-sm"
@@ -2208,10 +2257,28 @@ function CapacityCellDialog({
                       {task.tags?.length ? ` · ${task.tags.join(", ")}` : ""}
                     </div>
                   </div>
-                  <Badge variant="secondary" className="shrink-0">
-                    {qty}
-                  </Badge>
-                </button>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={99}
+                    value={qty}
+                    onChange={(e) => {
+                      const n = Math.max(0, Math.min(99, Number(e.target.value) || 0));
+                      if (cell) onSetDemand(task.id, cell.roleId, n);
+                    }}
+                    className="h-8 w-14 shrink-0"
+                    aria-label={`Demand for ${task.name}`}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 text-xs"
+                    onClick={() => onOpenTask(task.id)}
+                  >
+                    Edit
+                  </Button>
+                </div>
               );
             })}
           </div>
@@ -2220,6 +2287,7 @@ function CapacityCellDialog({
     </Dialog>
   );
 }
+
 
 /* ---------------- Tag editor ---------------- */
 
