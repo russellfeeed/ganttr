@@ -1259,6 +1259,8 @@ function TimelineGrid({
   weekWidth,
   chartStart,
   rows,
+  teams,
+  allTasks,
   selectedTaskId,
   onSelect,
   onMove,
@@ -1268,11 +1270,23 @@ function TimelineGrid({
   weekWidth: number;
   chartStart: Date;
   rows: DisplayRow[];
+  teams: Team[];
+  allTasks: Task[];
   selectedTaskId: string | null;
   onSelect: (id: string) => void;
   onMove: (taskId: string, newStart: number) => void;
   onResize: (taskId: string, newDuration: number) => void;
 }) {
+  const tasksById = useMemo(() => {
+    const m = new Map<string, Task>();
+    for (const t of allTasks) m.set(t.id, t);
+    return m;
+  }, [allTasks]);
+  const teamsById = useMemo(() => {
+    const m = new Map<string, Team>();
+    for (const t of teams) m.set(t.id, t);
+    return m;
+  }, [teams]);
   const monthSpans = useMemo(() => {
     const spans: { label: string; span: number }[] = [];
     let currentLabel = "";
