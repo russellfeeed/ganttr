@@ -79,6 +79,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { exportChartToPdf, type PdfRow } from "@/lib/export-pdf";
+import { exportChartToZohoCsv } from "@/lib/export-zoho";
 
 export const Route = createFileRoute("/chart/$chartId")({
   head: () => ({
@@ -639,6 +640,42 @@ function ChartEditor() {
             }}
           >
             <FileDown className="mr-1 h-4 w-4" /> PDF
+            {hasUnexportedChanges && (
+              <span
+                aria-label="Unexported changes"
+                className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500"
+              />
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              try {
+                const { filename, csv, duplicateNames } = exportChartToZohoCsv(chart);
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                toast.success(`Exported ${chart.tasks.length} task${chart.tasks.length === 1 ? "" : "s"} for Zoho`);
+                if (duplicateNames.length) {
+                  toast.warning(
+                    `Duplicate task names may break dependencies in Zoho: ${duplicateNames.slice(0, 3).join(", ")}${duplicateNames.length > 3 ? "…" : ""}`,
+                  );
+                }
+                markChartExported(chart.id);
+              } catch (err) {
+                console.error(err);
+                toast.error("Couldn't export Zoho CSV");
+              }
+            }}
+          >
+            <Download className="mr-1 h-4 w-4" /> Zoho
             {hasUnexportedChanges && (
               <span
                 aria-label="Unexported changes"
