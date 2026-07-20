@@ -119,7 +119,9 @@ function ChartEditor() {
     tasks: Task[];
     name?: string;
     startDate?: string;
+    teams?: Team[];
   } | null>(null);
+
 
   const {
     renameChart,
