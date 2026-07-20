@@ -309,6 +309,31 @@ export const useGanttStore = create<State & Actions>()(
         set((s) => {
           const chart = s.charts[chartId];
           if (!chart) return s;
+
+          // Merge/replace teams first so we know the valid role IDs before sanitizing demands.
+          const incomingTeams: Team[] = (incoming.teams ?? []).map((t) => ({
+            ...t,
+            roles: (t.roles ?? []).map((r) => ({ ...r })),
+          }));
+          let nextTeams: Team[];
+          if (mode === "replace") {
+            nextTeams = incomingTeams;
+          } else {
+            const existing = (chart.teams ?? []).map((t) => ({ ...t, roles: [...(t.roles ?? [])] }));
+            const byId = new Map(existing.map((t) => [t.id, t]));
+            for (const inc of incomingTeams) {
+              const cur = byId.get(inc.id);
+              if (!cur) {
+                existing.push(inc);
+                byId.set(inc.id, inc);
+              } else {
+                const roleIds = new Set(cur.roles.map((r) => r.id));
+                for (const r of inc.roles) if (!roleIds.has(r.id)) cur.roles.push(r);
+              }
+            }
+            nextTeams = existing;
+          }
+
           const existingIds = new Set(chart.tasks.map((t) => t.id));
           const idMap: Record<string, string> = {};
           const remapped: Task[] = incoming.tasks.map((t) => {
@@ -317,9 +342,9 @@ export const useGanttStore = create<State & Actions>()(
             return { ...t, id: newId, demands: t.demands ?? [] };
           });
           // Fix dependsOn references within the imported set + sanitize teamId + demand roleIds
-          const knownTeamIds = new Set((chart.teams ?? []).map((t) => t.id));
+          const knownTeamIds = new Set(nextTeams.map((t) => t.id));
           const knownRoleIds = new Set<string>();
-          for (const team of chart.teams ?? []) for (const r of team.roles ?? []) knownRoleIds.add(r.id);
+          for (const team of nextTeams) for (const r of team.roles ?? []) knownRoleIds.add(r.id);
           for (const t of remapped) {
             if (t.dependsOn && idMap[t.dependsOn]) t.dependsOn = idMap[t.dependsOn];
             else if (t.dependsOn && !existingIds.has(t.dependsOn)) t.dependsOn = undefined;
@@ -338,6 +363,7 @@ export const useGanttStore = create<State & Actions>()(
                 name: mode === "replace" && incoming.name ? incoming.name : chart.name,
                 startDate:
                   mode === "replace" && incoming.startDate ? incoming.startDate : chart.startDate,
+                teams: nextTeams,
                 tasks: nextTasks,
               },
             },
@@ -345,6 +371,7 @@ export const useGanttStore = create<State & Actions>()(
         });
         return count;
       },
+
 
       addTeam: (chartId, name, color) => {
         const id = nanoid(8);
