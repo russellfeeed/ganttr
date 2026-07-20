@@ -200,7 +200,7 @@ export const useGanttStore = create<State & Actions>()(
             startWeek: partial?.startWeek ?? 0,
             durationWeeks: partial?.durationWeeks ?? 2,
             color: partial?.color ?? color,
-            tag: partial?.tag,
+            tags: normalizeTags(partial?.tags),
             dependsOn: partial?.dependsOn,
           };
           return {
