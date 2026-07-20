@@ -188,7 +188,7 @@ function ChartEditor() {
   const visibleTasks = useMemo(() => {
     const tasks = chart?.tasks ?? [];
     return tasks.filter((t) => {
-      if (tagFilter !== "__all__" && t.tag !== tagFilter) return false;
+      if (tagFilter !== "__all__" && !(t.tags ?? []).includes(tagFilter)) return false;
       if (teamFilter === "__all__") return true;
       if (teamFilter === "__none__") return !t.teamId;
       return t.teamId === teamFilter;
