@@ -1240,11 +1240,14 @@ function TaskRowBody({
               <span className="truncate">{team.name}</span>
             </>
           )}
-          {task.tag && (
-            <>
+          {(task.tags ?? []).slice(0, 2).map((tag) => (
+            <span key={tag} className="flex items-center gap-1 truncate max-w-[80px]">
               <span>·</span>
-              <span className="truncate">{task.tag}</span>
-            </>
+              <span className="truncate">{tag}</span>
+            </span>
+          ))}
+          {(task.tags?.length ?? 0) > 2 && (
+            <span className="text-[10px]">+{(task.tags!.length - 2)}</span>
           )}
         </div>
       </div>
