@@ -1827,19 +1827,16 @@ function TaskEditor({
         </div>
 
         <div>
-          <Label className="text-xs">Tag</Label>
-          <Input
-            list={`tag-suggestions-${task.id}`}
-            value={task.tag ?? ""}
-            onChange={(e) => onChange({ tag: e.target.value || undefined })}
-            placeholder="e.g. Design, Backend"
-            className="mt-1"
+          <Label className="text-xs">Tags</Label>
+          <TagEditor
+            tags={task.tags ?? []}
+            allTags={Array.from(
+              new Set(chartTasks.flatMap((t) => t.tags ?? [])),
+            ).sort((a, b) => a.localeCompare(b))}
+            color={task.color}
+            listId={`tag-suggestions-${task.id}`}
+            onChange={(tags) => onChange({ tags })}
           />
-          <datalist id={`tag-suggestions-${task.id}`}>
-            {Array.from(new Set(chartTasks.map((t) => t.tag).filter((t): t is string => !!t && t !== task.tag))).sort((a, b) => a.localeCompare(b)).map((t) => (
-              <option key={t} value={t} />
-            ))}
-          </datalist>
         </div>
 
         <div>
