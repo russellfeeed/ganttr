@@ -2204,4 +2204,92 @@ function CapacityCellDialog({
   );
 }
 
+/* ---------------- Tag editor ---------------- */
+
+function TagEditor({
+  tags,
+  allTags,
+  color,
+  listId,
+  onChange,
+}: {
+  tags: string[];
+  allTags: string[];
+  color: string;
+  listId: string;
+  onChange: (tags: string[]) => void;
+}) {
+  const [input, setInput] = useState("");
+  const lowerSet = new Set(tags.map((t) => t.toLowerCase()));
+
+  const commit = (raw: string) => {
+    const next = normalizeTags([...tags, ...raw.split(",")]);
+    if (next.length !== tags.length || next.some((v, i) => v !== tags[i])) {
+      onChange(next);
+    }
+    setInput("");
+  };
+
+  const removeAt = (idx: number) => {
+    const next = tags.filter((_, i) => i !== idx);
+    onChange(next);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      const v = input.trim();
+      if (v) commit(v);
+    } else if (e.key === "Backspace" && input === "" && tags.length > 0) {
+      e.preventDefault();
+      removeAt(tags.length - 1);
+    }
+  };
+
+  return (
+    <div className="mt-1 space-y-1.5">
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {tags.map((tag, idx) => (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-white"
+              style={{ backgroundColor: color }}
+            >
+              {tag}
+              <button
+                type="button"
+                onClick={() => removeAt(idx)}
+                className="opacity-80 hover:opacity-100"
+                aria-label={`Remove ${tag}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <Input
+        list={listId}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => {
+          const v = input.trim();
+          if (v) commit(v);
+        }}
+        placeholder="Type and press Enter"
+      />
+      <datalist id={listId}>
+        {allTags
+          .filter((t) => !lowerSet.has(t.toLowerCase()))
+          .map((t) => (
+            <option key={t} value={t} />
+          ))}
+      </datalist>
+    </div>
+  );
+}
+
+
 
