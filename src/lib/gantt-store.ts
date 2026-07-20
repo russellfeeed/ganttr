@@ -540,7 +540,7 @@ export const useGanttStore = create<State & Actions>()(
                     ? {
                         ...t,
                         roles: (t.roles ?? []).map((r) =>
-                          r.id === roleId ? { ...r, headcount: Math.max(0, headcount) } : r,
+                          r.id === roleId ? { ...r, headcount: Math.max(0, Math.round(headcount * 2) / 2) } : r,
                         ),
                       }
                     : t,
