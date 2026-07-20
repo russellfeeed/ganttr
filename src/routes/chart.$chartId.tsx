@@ -696,17 +696,20 @@ function ChartEditor() {
       </header>
 
       {/* Main split */}
+      <div className="flex flex-1 overflow-hidden">
       {viewMode === "capacity" ? (
-        <CapacityHeatmap
-          teams={teams}
-          totalWeeks={totalWeeks}
-          weekWidth={weekWidth}
-          chartStart={chartStart}
-          demandByWeek={demandByWeek}
-          onCellClick={(teamId, roleId, week) =>
-            setCapacityCell({ teamId, roleId, week })
-          }
-        />
+        <div className="flex flex-1 overflow-hidden">
+          <CapacityHeatmap
+            teams={teams}
+            totalWeeks={totalWeeks}
+            weekWidth={weekWidth}
+            chartStart={chartStart}
+            demandByWeek={demandByWeek}
+            onCellClick={(teamId, roleId, week) =>
+              setCapacityCell({ teamId, roleId, week })
+            }
+          />
+        </div>
       ) : (
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel */}
@@ -820,25 +823,27 @@ function ChartEditor() {
           />
         </div>
 
-
-        {/* Right editor */}
-        {selectedTask && (
-          <TaskEditor
-            key={selectedTask.id}
-            task={selectedTask}
-            chartTasks={chart.tasks}
-            teams={teams}
-            onChange={(patch) => updateTask(chart.id, selectedTask.id, patch)}
-            onSetDemand={(roleId, qty) => setTaskDemand(chart.id, selectedTask.id, roleId, qty)}
-            onDelete={() => {
-              deleteTask(chart.id, selectedTask.id);
-              setSelectedTaskId(null);
-            }}
-            onClose={() => setSelectedTaskId(null)}
-          />
-        )}
       </div>
       )}
+
+      {/* Right editor (available in all views) */}
+      {selectedTask && (
+        <TaskEditor
+          key={selectedTask.id}
+          task={selectedTask}
+          chartTasks={chart.tasks}
+          teams={teams}
+          onChange={(patch) => updateTask(chart.id, selectedTask.id, patch)}
+          onSetDemand={(roleId, qty) => setTaskDemand(chart.id, selectedTask.id, roleId, qty)}
+          onDelete={() => {
+            deleteTask(chart.id, selectedTask.id);
+            setSelectedTaskId(null);
+          }}
+          onClose={() => setSelectedTaskId(null)}
+        />
+      )}
+      </div>
+
 
       <AlertDialog
         open={pendingImport !== null}
