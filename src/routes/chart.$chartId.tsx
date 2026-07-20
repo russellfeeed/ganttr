@@ -1405,6 +1405,9 @@ function TimelineGrid({
               task={r.task}
               top={rowOffsets.offsets[i]}
               weekWidth={weekWidth}
+              chartStart={chartStart}
+              team={r.task.teamId ? teamsById.get(r.task.teamId) ?? null : null}
+              dependsOnTask={r.task.dependsOn ? tasksById.get(r.task.dependsOn) ?? null : null}
               selected={selectedTaskId === r.task.id}
               onSelect={() => onSelect(r.task.id)}
               onMove={(newStart) => onMove(r.task.id, newStart)}
