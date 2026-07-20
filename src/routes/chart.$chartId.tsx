@@ -1428,6 +1428,9 @@ function TaskBar({
   task,
   top,
   weekWidth,
+  chartStart,
+  team,
+  dependsOnTask,
   selected,
   onSelect,
   onMove,
@@ -1436,6 +1439,9 @@ function TaskBar({
   task: Task;
   top: number;
   weekWidth: number;
+  chartStart: Date;
+  team: Team | null;
+  dependsOnTask: Task | null;
   selected: boolean;
   onSelect: () => void;
   onMove: (newStart: number) => void;
