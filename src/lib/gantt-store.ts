@@ -357,10 +357,11 @@ export const useGanttStore = create<State & Actions>()(
 
           const existingIds = new Set(chart.tasks.map((t) => t.id));
           const idMap: Record<string, string> = {};
-          const remapped: Task[] = incoming.tasks.map((t) => {
+          const remapped: Task[] = incoming.tasks.map((t: any) => {
             const newId = existingIds.has(t.id) || idMap[t.id] ? nanoid(8) : t.id;
             idMap[t.id] = newId;
-            return { ...t, id: newId, demands: t.demands ?? [] };
+            const { tag, ...rest } = t;
+            return { ...rest, id: newId, demands: t.demands ?? [], tags: normalizeTags(t.tags, tag) };
           });
           // Fix dependsOn references within the imported set + sanitize teamId + demand roleIds
           const knownTeamIds = new Set(nextTeams.map((t) => t.id));
