@@ -823,25 +823,27 @@ function ChartEditor() {
           />
         </div>
 
-
-        {/* Right editor */}
-        {selectedTask && (
-          <TaskEditor
-            key={selectedTask.id}
-            task={selectedTask}
-            chartTasks={chart.tasks}
-            teams={teams}
-            onChange={(patch) => updateTask(chart.id, selectedTask.id, patch)}
-            onSetDemand={(roleId, qty) => setTaskDemand(chart.id, selectedTask.id, roleId, qty)}
-            onDelete={() => {
-              deleteTask(chart.id, selectedTask.id);
-              setSelectedTaskId(null);
-            }}
-            onClose={() => setSelectedTaskId(null)}
-          />
-        )}
       </div>
       )}
+
+      {/* Right editor (available in all views) */}
+      {selectedTask && (
+        <TaskEditor
+          key={selectedTask.id}
+          task={selectedTask}
+          chartTasks={chart.tasks}
+          teams={teams}
+          onChange={(patch) => updateTask(chart.id, selectedTask.id, patch)}
+          onSetDemand={(roleId, qty) => setTaskDemand(chart.id, selectedTask.id, roleId, qty)}
+          onDelete={() => {
+            deleteTask(chart.id, selectedTask.id);
+            setSelectedTaskId(null);
+          }}
+          onClose={() => setSelectedTaskId(null)}
+        />
+      )}
+      </div>
+
 
       <AlertDialog
         open={pendingImport !== null}
