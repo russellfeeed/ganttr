@@ -464,13 +464,14 @@ function ChartEditor() {
             </Select>
           )}
 
-          {allTags.length > 0 && (
+          {(chart?.tasks ?? []).length > 0 && (
             <Select value={tagFilter} onValueChange={setTagFilter}>
               <SelectTrigger className="h-9 w-[140px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">All tags</SelectItem>
+                <SelectItem value="__none__">No tags</SelectItem>
                 {allTags.map((t) => (
                   <SelectItem key={t} value={t}>
                     {t}
