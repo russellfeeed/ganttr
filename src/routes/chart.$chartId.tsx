@@ -178,8 +178,8 @@ function ChartEditor() {
 
   const allTags = useMemo(() => {
     const s = new Set<string>();
-    (chart?.tasks ?? []).forEach((t) => t.tag && s.add(t.tag));
-    return Array.from(s);
+    (chart?.tasks ?? []).forEach((t) => (t.tags ?? []).forEach((tag) => s.add(tag)));
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [chart?.tasks]);
 
   const teams = chart?.teams ?? [];
