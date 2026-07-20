@@ -38,12 +38,30 @@ export type Task = {
   startWeek: number; // offset in weeks from chart.startDate (Monday)
   durationWeeks: number;
   color: string;
-  tag?: string;
+  tags?: string[];
   dependsOn?: string;
   teamId?: string;
   tbc?: boolean;
   demands?: TaskDemand[];
 };
+
+export function normalizeTags(input: unknown, legacyTag?: unknown): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (raw: unknown) => {
+    if (typeof raw !== "string") return;
+    const v = raw.trim();
+    if (!v) return;
+    const key = v.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(v);
+  };
+  if (Array.isArray(input)) for (const v of input) push(v);
+  else if (typeof input === "string") push(input);
+  if (typeof legacyTag === "string") push(legacyTag);
+  return out;
+}
 
 export type Chart = {
   id: string;
