@@ -557,11 +557,21 @@ function ChartEditor() {
                   id: chart.id,
                   name: chart.name,
                   startDate: chart.startDate,
-                  tasks: chart.tasks,
-                  teams: chart.teams,
+                  tasks: chart.tasks.map((t) => ({ ...t, demands: t.demands ?? [] })),
+                  teams: (chart.teams ?? []).map((t) => ({
+                    id: t.id,
+                    name: t.name,
+                    color: t.color,
+                    roles: (t.roles ?? []).map((r) => ({
+                      id: r.id,
+                      name: r.name,
+                      headcount: r.headcount,
+                    })),
+                  })),
                   createdAt: chart.createdAt,
                 },
               };
+
               const blob = new Blob([JSON.stringify(payload, null, 2)], {
                 type: "application/json",
               });
