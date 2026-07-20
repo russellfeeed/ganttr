@@ -915,15 +915,35 @@ function TeamsManager({
                 onChange={(e) => onRename(team.id, e.target.value)}
                 className="h-8 text-sm"
               />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                onClick={() => onDelete(team.id)}
-                aria-label="Delete team"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    aria-label="Delete team"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete "{team.name}"?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This removes the team and all its roles. Tasks assigned to this team will
+                      become unassigned, and any role demands from this team will be cleared. This
+                      can't be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onDelete(team.id)}>
+                      Delete team
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
             </div>
             <TeamRolesEditor
               team={team}
