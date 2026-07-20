@@ -579,7 +579,7 @@ export const useGanttStore = create<State & Actions>()(
         set((s) => {
           const chart = s.charts[chartId];
           if (!chart) return s;
-          const q = Math.max(0, Math.floor(quantity));
+          const q = Math.max(0, Math.round(quantity * 2) / 2);
           return {
             charts: {
               ...s.charts,
