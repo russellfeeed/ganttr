@@ -491,7 +491,7 @@ export const useGanttStore = create<State & Actions>()(
                   const role: Role = {
                     id,
                     name: name?.trim() || `Role ${roles.length + 1}`,
-                    headcount: Math.max(0, headcount ?? 1),
+                    headcount: Math.max(0, Math.round((headcount ?? 1) * 2) / 2),
                   };
                   return { ...t, roles: [...roles, role] };
                 }),
