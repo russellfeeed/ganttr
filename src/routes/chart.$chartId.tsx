@@ -1641,10 +1641,14 @@ function TaskBar({
                 </Badge>
               ))}
               {task.tbc && (
-                <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
+                <Badge
+                  variant="outline"
+                  className="h-4 px-1.5 text-[10px] border-dashed border-current text-inherit"
+                >
                   To be confirmed
                 </Badge>
               )}
+
             </div>
           )}
           {demands.length > 0 && (
