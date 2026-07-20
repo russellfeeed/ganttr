@@ -1076,8 +1076,9 @@ function TeamRolesEditor({
         <Input
           type="number"
           min={0}
+          step={0.5}
           value={count}
-          onChange={(e) => setCount(Math.max(0, parseInt(e.target.value) || 0))}
+          onChange={(e) => setCount(Math.max(0, Math.round((parseFloat(e.target.value) || 0) * 2) / 2))}
           className="h-7 w-14 text-xs"
           aria-label="Headcount"
         />
@@ -1915,9 +1916,10 @@ function TaskEditor({
                     <Input
                       type="number"
                       min={0}
+                      step={0.5}
                       value={demandFor(r.id)}
                       onChange={(e) =>
-                        onSetDemand(r.id, Math.max(0, parseInt(e.target.value) || 0))
+                        onSetDemand(r.id, Math.max(0, Math.round((parseFloat(e.target.value) || 0) * 2) / 2))
                       }
                       className="h-7 w-16 text-xs"
                     />
@@ -2219,9 +2221,10 @@ function CapacityCellDialog({
                   type="number"
                   min={0}
                   max={999}
+                  step={0.5}
                   value={cap}
                   onChange={(e) => {
-                    const n = Math.max(0, Math.min(999, Number(e.target.value) || 0));
+                    const n = Math.max(0, Math.min(999, Math.round((Number(e.target.value) || 0) * 2) / 2));
                     onSetRoleHeadcount(team.id, role.id, n);
                   }}
                   className="h-8 w-16"
@@ -2266,9 +2269,10 @@ function CapacityCellDialog({
                     type="number"
                     min={0}
                     max={99}
+                    step={0.5}
                     value={qty}
                     onChange={(e) => {
-                      const n = Math.max(0, Math.min(99, Number(e.target.value) || 0));
+                      const n = Math.max(0, Math.min(99, Math.round((Number(e.target.value) || 0) * 2) / 2));
                       if (cell) onSetDemand(task.id, cell.roleId, n);
                     }}
                     className="h-8 w-14 shrink-0"
