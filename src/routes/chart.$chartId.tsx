@@ -1568,12 +1568,21 @@ function TaskBar({
                   TBC
                 </Badge>
               )}
-              {task.tag && (
+              {(task.tags ?? []).slice(0, 2).map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="secondary"
+                  className="ml-1.5 h-4 px-1 text-[9px] bg-black/20 text-white border-0"
+                >
+                  {tag}
+                </Badge>
+              ))}
+              {(task.tags?.length ?? 0) > 2 && (
                 <Badge
                   variant="secondary"
                   className="ml-1.5 h-4 px-1 text-[9px] bg-black/20 text-white border-0"
                 >
-                  {task.tag}
+                  +{task.tags!.length - 2}
                 </Badge>
               )}
             </div>
