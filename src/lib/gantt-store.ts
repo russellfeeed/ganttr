@@ -491,7 +491,7 @@ export const useGanttStore = create<State & Actions>()(
                   const role: Role = {
                     id,
                     name: name?.trim() || `Role ${roles.length + 1}`,
-                    headcount: Math.max(0, headcount ?? 1),
+                    headcount: Math.max(0, Math.round((headcount ?? 1) * 2) / 2),
                   };
                   return { ...t, roles: [...roles, role] };
                 }),
@@ -540,7 +540,7 @@ export const useGanttStore = create<State & Actions>()(
                     ? {
                         ...t,
                         roles: (t.roles ?? []).map((r) =>
-                          r.id === roleId ? { ...r, headcount: Math.max(0, headcount) } : r,
+                          r.id === roleId ? { ...r, headcount: Math.max(0, Math.round(headcount * 2) / 2) } : r,
                         ),
                       }
                     : t,
@@ -579,7 +579,7 @@ export const useGanttStore = create<State & Actions>()(
         set((s) => {
           const chart = s.charts[chartId];
           if (!chart) return s;
-          const q = Math.max(0, Math.floor(quantity));
+          const q = Math.max(0, Math.round(quantity * 2) / 2);
           return {
             charts: {
               ...s.charts,
