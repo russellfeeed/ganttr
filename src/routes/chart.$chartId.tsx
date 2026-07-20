@@ -785,9 +785,13 @@ function ChartEditor() {
             <AlertDialogTitle>Import tasks</AlertDialogTitle>
             <AlertDialogDescription>
               This file contains {pendingImport?.tasks.length ?? 0} task
-              {(pendingImport?.tasks.length ?? 0) === 1 ? "" : "s"}. Add them to this chart, or
-              replace all existing tasks?
+              {(pendingImport?.tasks.length ?? 0) === 1 ? "" : "s"}
+              {pendingImport?.teams && pendingImport.teams.length > 0
+                ? ` and ${pendingImport.teams.length} team${pendingImport.teams.length === 1 ? "" : "s"}`
+                : ""}
+              . Merge with what's already in this chart, or replace everything?
             </AlertDialogDescription>
+
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
