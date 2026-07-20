@@ -765,6 +765,8 @@ function ChartEditor() {
             weekWidth={weekWidth}
             chartStart={chartStart}
             rows={displayRows}
+            teams={teams}
+            allTasks={chart.tasks}
             selectedTaskId={selectedTaskId}
             onSelect={setSelectedTaskId}
             onMove={(taskId, newStart) => moveTask(chart.id, taskId, newStart, cascade)}
