@@ -1,35 +1,45 @@
+
 ## Goal
 
-Turn the Capacity cell popup from read-only into a quick-edit surface so overallocations can be resolved without leaving the dialog.
+Add an "Export for Zoho Projects" option at the chart level that produces a CSV file matching Zoho Projects' task import format, so tasks in the current chart can be uploaded into a Zoho Projects project.
 
-## Changes (all in `src/routes/chart.$chartId.tsx`, `CapacityCellDialog`)
+## Zoho Projects CSV format
 
-### 1. Inline-edit each task's demand for this role
-- Replace the current `Badge` showing the quantity with a compact number input (0–99), bound to `setTaskDemand(chartId, task.id, cell.roleId, qty)`.
-- Setting the value to `0` removes/zeroes the demand for that role on that task.
-- The row stays clickable to open full task details, but the number input `stopPropagation` so editing doesn't trigger navigation. Add a small "Edit task…" link/button per row to make the "open full details" action explicit (replacing the whole-row click for accessibility).
-- `used`, `over`, `atCap`, and the diagnostic reasons recompute live from the updated store data (dialog already reads from props sourced from `visibleTasks`, so no extra state needed).
+Zoho Projects' task importer accepts a CSV with a header row and one row per task. The columns we'll emit (all supported by the standard Zoho Projects import template):
 
-### 2. Edit team composition for the current role
-- Add a "Team capacity" section between the allocation banner and the task list:
-  - Role name inline-editable (`renameRole`).
-  - Headcount stepper / number input (`setRoleHeadcount`, min 0).
-  - Small helper text: "Applies to every week for this role."
-- Provide a secondary link "Manage all roles" that closes the dialog and opens the existing Teams popover (reuse existing `setTeamsOpen(true)` if available; otherwise just close the dialog — Teams popover is one click away).
+- `Task Name` — task.name
+- `Task List` — team name (or `General` if unassigned) — Zoho requires every task to belong to a task list, and swimlane teams map naturally to task lists
+- `Start Date` — chart start date + `startWeek * 7` days, formatted `MM/DD/YYYY`
+- `End Date` — start date + `durationWeeks * 7 - 1` days, `MM/DD/YYYY`
+- `Duration` — `durationWeeks * 5` (working days, 5-day week) with unit `days`
+- `Duration Type` — `days`
+- `Priority` — `None` (we don't track priority)
+- `Percentage Completed` — `0`
+- `Dependency` — name of the task referenced by `dependsOn` with the suffix ` - FS` (finish-to-start, Zoho's default); blank when none
+- `Description` — auto-generated: tags joined as `#tag`, plus `[TBC]` marker when `tbc`, plus demand summary (`Role x Qty`) when demands exist
+- `Milestone` — blank (we don't model milestones)
 
-### 3. Wire new props from the parent
-Pass three new handlers into `CapacityCellDialog`:
-```ts
-onSetDemand: (taskId, qty) => setTaskDemand(chart.id, taskId, cell.roleId, qty)
-onRenameRole: (name) => renameRole(chart.id, cell.teamId, cell.roleId, name)
-onSetRoleHeadcount: (hc) => setRoleHeadcount(chart.id, cell.teamId, cell.roleId, hc)
-```
-All three store actions already exist in `src/lib/gantt-store.ts` — no store changes needed.
+Notes:
+- Zoho matches `Dependency` by task name, so duplicate task names in the same chart will collide on import. We'll add a small warning toast if duplicates are detected but still export.
+- Values containing commas, quotes, or newlines will be RFC 4180 quoted.
+- The file is downloaded as `<chart-name>-zoho-projects.csv`.
 
-### 4. Keep the existing "open full task" flow
-`onOpenTask` remains for the explicit "Edit task…" button per row; it still closes the dialog and selects the task so `TaskDetails` opens on the right.
+## UI change
+
+In `src/routes/chart.$chartId.tsx`, in the existing chart header export area (next to "Export JSON" / "Export PDF"), add an **Export for Zoho** button. On click it runs the CSV builder and triggers a browser download. No changes to the data model or the store.
+
+## Implementation
+
+1. New file `src/lib/export-zoho.ts`:
+   - `exportChartToZohoCsv(chart: Chart): { filename: string; csv: string }`
+   - Pure function: takes the chart (plus its teams for task-list names) and returns filename + CSV string. Includes CSV escaping helper and date math using `date-fns`.
+2. `src/routes/chart.$chartId.tsx`:
+   - Import the helper and add an `Export for Zoho` button in the toolbar.
+   - On click: build CSV, create a Blob, trigger download, and show a success toast (plus a duplicate-name warning if applicable).
+3. No store, schema, or migration changes; no changes to JSON export/import.
 
 ## Out of scope
-- No store schema changes.
-- No changes to the capacity heatmap rendering itself.
-- No bulk actions (e.g. "shift task by 1 week to fix overallocation").
+
+- Direct API upload to Zoho Projects (would need OAuth + a connector).
+- Importing from Zoho Projects back into the app.
+- Exporting teams/roles/headcount (Zoho's task CSV has no equivalent fields).
