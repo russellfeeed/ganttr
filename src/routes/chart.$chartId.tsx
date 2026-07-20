@@ -856,7 +856,17 @@ function ChartEditor() {
           setCapacityCell(null);
           setSelectedTaskId(taskId);
         }}
+        onSetDemand={(taskId, roleId, qty) =>
+          setTaskDemand(chart.id, taskId, roleId, qty)
+        }
+        onRenameRole={(teamId, roleId, name) =>
+          renameRole(chart.id, teamId, roleId, name)
+        }
+        onSetRoleHeadcount={(teamId, roleId, hc) =>
+          setRoleHeadcount(chart.id, teamId, roleId, hc)
+        }
       />
+
     </div>
   );
 }
