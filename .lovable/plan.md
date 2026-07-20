@@ -1,29 +1,18 @@
-## Multiple tags per task
+## Diagnose "tags gone everywhere"
 
-### Data model (`src/lib/gantt-store.ts`)
-- Change `Task.tag?: string` → `Task.tags: string[]` (always an array, default `[]`).
-- Bump persist schema to version 3 with migration:
-  - If a task has legacy `tag` string, convert to `tags: [tag]` (trimmed, deduped).
-  - Ensure `tags` is always an array on load; drop empty strings.
-- Update `createTask` / `importChartTasks` sanitization to normalize `tags` (array of unique trimmed non-empty strings). Accept legacy `tag` on import for backward compatibility.
-- Include `tags` in the chart signature used for the "unsaved export" indicator.
+Everything in code still reads and writes `task.tags` (row, bar, tooltip, editor, filter, export, migration). Since tags are missing everywhere at once, the most likely cause is data-side, not render-side — the current chart's tasks simply don't have a `tags` array populated. Possible causes:
 
-### Editor UI (`src/routes/chart.$chartId.tsx`)
-- **Task details panel**: replace single text input with a chip-based multi-tag editor:
-  - Existing tags shown as removable chips (`x` per chip).
-  - Text input adds a tag on Enter or comma; trims and dedupes; still backed by `<datalist>` suggestions built from the union of all tags across the chart.
-  - Suggestions exclude tags already on the task.
-- **Task list row & task bar label**: show up to 2 tag chips, with `+N` overflow indicator if more.
-- **Hover tooltip on task bar**: render all tags as small colored chips instead of one.
-- **Tag filter dropdown** (top toolbar): options built from union of all tags; filter matches if the task contains the selected tag (`tags.includes(tagFilter)`).
-- **Search**: unchanged (still name-based).
+1. The v3 migration ran on a store that never had a `tag` field, producing `tags: []` for every task (expected — but nothing to display).
+2. A re-import from an older JSON export replaced tasks whose stored field was `tag` (singular) and the normalization missed them.
+3. Tags were edited but `updateTask({tags})` was called with an empty array by the TagEditor's blur/commit path.
 
-### PDF export (`src/lib/export-pdf.ts`)
-- Where a single tag is rendered, join `task.tags` with `, ` (or render first tag + `+N`) so exports reflect the new model.
+## Steps
 
-### Autofill / capacity dialog
-- Any place currently reading `task.tag` will read `task.tags` (join for display).
+1. **Inspect live state**: read `localStorage["gantt-store-v1"]` for the current chart and log, per task: `tags`, legacy `tag`, and the persisted `version`. This tells us whether tags exist in storage at all.
+2. **Branch on result**:
+   - If storage has legacy `tag` values but no `tags`: the migration didn't run for this chart — add a one-off normalization pass at store hydration and re-run for existing data.
+   - If storage has `tags: []` everywhere and no legacy `tag`: tags were genuinely lost (likely at an import step). Offer to restore from the user's most recent JSON backup by re-importing.
+   - If storage has correct `tags` arrays: the bug is in rendering/filtering — likely the `tagFilter` is stuck on a stale value (e.g. `"No tags"`) after the previous change; reset the filter and verify.
+3. **Fix the identified cause**, then verify tags appear in the task list, on task bars, in the tooltip, in the details editor, and in the filter dropdown.
 
-### Out of scope
-- No multi-select filter (still single-tag filter dropdown for now).
-- No per-tag color mapping.
+Nothing is edited until step 1's result is in — the diagnosis drives the fix.
