@@ -511,14 +511,17 @@ function ChartEditor() {
                 let tasks: Task[] | undefined;
                 let name: string | undefined;
                 let startDate: string | undefined;
+                let teamsFromFile: Team[] | undefined;
                 if (Array.isArray(data?.tasks)) {
                   tasks = data.tasks;
                   name = data.name;
                   startDate = data.startDate;
+                  teamsFromFile = Array.isArray(data.teams) ? data.teams : undefined;
                 } else if (data?.chart?.tasks) {
                   tasks = data.chart.tasks;
                   name = data.chart.name;
                   startDate = data.chart.startDate;
+                  teamsFromFile = Array.isArray(data.chart.teams) ? data.chart.teams : undefined;
                 } else if (data?.charts) {
                   const firstId = data.order?.[0] ?? Object.keys(data.charts)[0];
                   const c = firstId ? data.charts[firstId] : null;
@@ -526,17 +529,19 @@ function ChartEditor() {
                     tasks = c.tasks;
                     name = c.name;
                     startDate = c.startDate;
+                    teamsFromFile = Array.isArray(c.teams) ? c.teams : undefined;
                   }
                 }
                 if (!tasks) {
                   toast.error("No tasks found in that file.");
                   return;
                 }
-                setPendingImport({ tasks, name, startDate });
+                setPendingImport({ tasks, name, startDate, teams: teamsFromFile });
               } catch {
                 toast.error("Couldn't read that file — is it valid JSON?");
               }
             }}
+
           />
           <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
             <Upload className="mr-1 h-4 w-4" /> Import
