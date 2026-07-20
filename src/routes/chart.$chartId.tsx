@@ -1515,58 +1515,129 @@ function TaskBar({
   const stripe = task.tbc
     ? `repeating-linear-gradient(45deg, rgba(255,255,255,0.35) 0 6px, rgba(255,255,255,0) 6px 12px)`
     : undefined;
+  const startDate = addWeeks(chartStart, task.startWeek);
+  const endDate = addWeeks(chartStart, task.startWeek + task.durationWeeks - 1);
+  const dateRangeLabel =
+    task.durationWeeks >= 4
+      ? `${format(startDate, "MMM yyyy")} → ${format(endDate, "MMM yyyy")}`
+      : `${format(startDate, "d MMM yyyy")} → ${format(endDate, "d MMM yyyy")}`;
+  const roleNameById = new Map((team?.roles ?? []).map((r) => [r.id, r.name]));
+  const demands = (task.demands ?? []).filter((d) => d.quantity > 0);
+
   return (
-    <div
-      data-task-id={task.id}
-      className={cn(
-        "absolute flex items-center rounded-md text-xs text-white shadow-sm transition-opacity select-none",
-        selected && "ring-2 ring-offset-2 ring-offset-background",
-        task.tbc && "border border-dashed border-white/70 opacity-90",
-      )}
-      style={{
-        left,
-        width,
-        top: barTop,
-        height: ROW_HEIGHT - 12,
-        backgroundColor: task.color,
-        backgroundImage: stripe,
-        // @ts-expect-error CSS var for ring
-        "--tw-ring-color": task.color,
-      }}
-      onMouseDown={(e) => startDrag("move", e)}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
-    >
-      <div
-        className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize rounded-l-md hover:bg-black/20"
-        onMouseDown={(e) => startDrag("resize-l", e)}
-      />
-      <div className="px-2 truncate flex-1 pointer-events-none">
-        <span className="font-medium">{task.name}</span>
-        {task.tbc && (
-          <Badge
-            variant="secondary"
-            className="ml-1.5 h-4 px-1 text-[9px] bg-white/25 text-white border-0"
+    <TooltipProvider delayDuration={300} disableHoverableContent>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            data-task-id={task.id}
+            className={cn(
+              "absolute flex items-center rounded-md text-xs text-white shadow-sm transition-opacity select-none",
+              selected && "ring-2 ring-offset-2 ring-offset-background",
+              task.tbc && "border border-dashed border-white/70 opacity-90",
+            )}
+            style={{
+              left,
+              width,
+              top: barTop,
+              height: ROW_HEIGHT - 12,
+              backgroundColor: task.color,
+              backgroundImage: stripe,
+              // @ts-expect-error CSS var for ring
+              "--tw-ring-color": task.color,
+            }}
+            onMouseDown={(e) => startDrag("move", e)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
           >
-            TBC
-          </Badge>
-        )}
-        {task.tag && (
-          <Badge
-            variant="secondary"
-            className="ml-1.5 h-4 px-1 text-[9px] bg-black/20 text-white border-0"
-          >
-            {task.tag}
-          </Badge>
-        )}
-      </div>
-      <div
-        className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize rounded-r-md hover:bg-black/20"
-        onMouseDown={(e) => startDrag("resize-r", e)}
-      />
-    </div>
+            <div
+              className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize rounded-l-md hover:bg-black/20"
+              onMouseDown={(e) => startDrag("resize-l", e)}
+            />
+            <div className="px-2 truncate flex-1 pointer-events-none">
+              <span className="font-medium">{task.name}</span>
+              {task.tbc && (
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 h-4 px-1 text-[9px] bg-white/25 text-white border-0"
+                >
+                  TBC
+                </Badge>
+              )}
+              {task.tag && (
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 h-4 px-1 text-[9px] bg-black/20 text-white border-0"
+                >
+                  {task.tag}
+                </Badge>
+              )}
+            </div>
+            <div
+              className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize rounded-r-md hover:bg-black/20"
+              onMouseDown={(e) => startDrag("resize-r", e)}
+            />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="start" className="max-w-xs p-3 space-y-1.5">
+          <div className="flex items-start gap-2">
+            <span
+              className="mt-1 inline-block h-2.5 w-2.5 rounded-sm shrink-0"
+              style={{ backgroundColor: task.color }}
+              aria-hidden
+            />
+            <div className="font-semibold text-sm leading-snug">{task.name}</div>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {dateRangeLabel}
+            <span className="ml-1">
+              · {task.durationWeeks} {task.durationWeeks === 1 ? "week" : "weeks"}
+            </span>
+          </div>
+          <div className="text-xs">
+            <span className="text-muted-foreground">Team: </span>
+            <span className="font-medium">{team?.name ?? "No team"}</span>
+          </div>
+          {(task.tag || task.tbc) && (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {task.tag && (
+                <Badge
+                  variant="secondary"
+                  className="h-4 px-1.5 text-[10px] text-white border-0"
+                  style={{ backgroundColor: task.color }}
+                >
+                  {task.tag}
+                </Badge>
+              )}
+              {task.tbc && (
+                <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
+                  To be confirmed
+                </Badge>
+              )}
+            </div>
+          )}
+          {demands.length > 0 && (
+            <div className="text-xs pt-1 border-t border-border/60">
+              <div className="text-muted-foreground mb-0.5">Resources</div>
+              <ul className="space-y-0.5">
+                {demands.map((d) => (
+                  <li key={d.roleId}>
+                    {d.quantity} × {roleNameById.get(d.roleId) ?? "Unknown role"}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {dependsOnTask && (
+            <div className="text-xs pt-1 border-t border-border/60">
+              <span className="text-muted-foreground">Depends on: </span>
+              <span className="font-medium">{dependsOnTask.name}</span>
+            </div>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
