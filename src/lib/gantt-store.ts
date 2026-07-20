@@ -38,12 +38,30 @@ export type Task = {
   startWeek: number; // offset in weeks from chart.startDate (Monday)
   durationWeeks: number;
   color: string;
-  tag?: string;
+  tags?: string[];
   dependsOn?: string;
   teamId?: string;
   tbc?: boolean;
   demands?: TaskDemand[];
 };
+
+export function normalizeTags(input: unknown, legacyTag?: unknown): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (raw: unknown) => {
+    if (typeof raw !== "string") return;
+    const v = raw.trim();
+    if (!v) return;
+    const key = v.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(v);
+  };
+  if (Array.isArray(input)) for (const v of input) push(v);
+  else if (typeof input === "string") push(input);
+  if (typeof legacyTag === "string") push(legacyTag);
+  return out;
+}
 
 export type Chart = {
   id: string;
@@ -112,7 +130,7 @@ export function computeChartSignature(chart: Chart): string {
       t.startWeek,
       t.durationWeeks,
       t.color,
-      t.tag ?? "",
+      t.tags?.join("|") ?? "",
       t.dependsOn ?? "",
       t.teamId ?? "",
       t.tbc ? 1 : 0,
@@ -182,7 +200,7 @@ export const useGanttStore = create<State & Actions>()(
             startWeek: partial?.startWeek ?? 0,
             durationWeeks: partial?.durationWeeks ?? 2,
             color: partial?.color ?? color,
-            tag: partial?.tag,
+            tags: normalizeTags(partial?.tags),
             dependsOn: partial?.dependsOn,
           };
           return {
@@ -290,7 +308,10 @@ export const useGanttStore = create<State & Actions>()(
               ...src,
               id: newId,
               teams: (src.teams ?? []).map((t) => ({ ...t, roles: t.roles ?? [] })),
-              tasks: (src.tasks ?? []).map((t) => ({ ...t, demands: t.demands ?? [] })),
+              tasks: (src.tasks ?? []).map((t: any) => {
+                const { tag, ...rest } = t;
+                return { ...rest, demands: t.demands ?? [], tags: normalizeTags(t.tags, tag) };
+              }),
             };
             prepended.push(newId);
             count++;
@@ -336,10 +357,11 @@ export const useGanttStore = create<State & Actions>()(
 
           const existingIds = new Set(chart.tasks.map((t) => t.id));
           const idMap: Record<string, string> = {};
-          const remapped: Task[] = incoming.tasks.map((t) => {
+          const remapped: Task[] = incoming.tasks.map((t: any) => {
             const newId = existingIds.has(t.id) || idMap[t.id] ? nanoid(8) : t.id;
             idMap[t.id] = newId;
-            return { ...t, id: newId, demands: t.demands ?? [] };
+            const { tag, ...rest } = t;
+            return { ...rest, id: newId, demands: t.demands ?? [], tags: normalizeTags(t.tags, tag) };
           });
           // Fix dependsOn references within the imported set + sanitize teamId + demand roleIds
           const knownTeamIds = new Set(nextTeams.map((t) => t.id));
@@ -584,7 +606,7 @@ export const useGanttStore = create<State & Actions>()(
     }),
     {
       name: "gantt-store-v1",
-      version: 2,
+      version: 3,
       migrate: (persisted: any, version) => {
         if (!persisted || typeof persisted !== "object") return persisted;
         if (version < 1 && persisted.charts) {
@@ -602,6 +624,16 @@ export const useGanttStore = create<State & Actions>()(
             }
             if (Array.isArray(c.tasks)) {
               for (const task of c.tasks) if (!Array.isArray(task.demands)) task.demands = [];
+            }
+          }
+        }
+        if (version < 3 && persisted.charts) {
+          for (const id of Object.keys(persisted.charts)) {
+            const c = persisted.charts[id];
+            if (!c || !Array.isArray(c.tasks)) continue;
+            for (const task of c.tasks) {
+              task.tags = normalizeTags(task.tags, task.tag);
+              delete task.tag;
             }
           }
         }

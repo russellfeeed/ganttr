@@ -56,7 +56,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { useGanttStore, TASK_COLORS, computeChartSignature, type Task, type Team, type Role } from "@/lib/gantt-store";
+import { useGanttStore, TASK_COLORS, computeChartSignature, normalizeTags, type Task, type Team, type Role } from "@/lib/gantt-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -178,8 +178,8 @@ function ChartEditor() {
 
   const allTags = useMemo(() => {
     const s = new Set<string>();
-    (chart?.tasks ?? []).forEach((t) => t.tag && s.add(t.tag));
-    return Array.from(s);
+    (chart?.tasks ?? []).forEach((t) => (t.tags ?? []).forEach((tag) => s.add(tag)));
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [chart?.tasks]);
 
   const teams = chart?.teams ?? [];
@@ -188,7 +188,7 @@ function ChartEditor() {
   const visibleTasks = useMemo(() => {
     const tasks = chart?.tasks ?? [];
     return tasks.filter((t) => {
-      if (tagFilter !== "__all__" && t.tag !== tagFilter) return false;
+      if (tagFilter !== "__all__" && !(t.tags ?? []).includes(tagFilter)) return false;
       if (teamFilter === "__all__") return true;
       if (teamFilter === "__none__") return !t.teamId;
       return t.teamId === teamFilter;
@@ -1240,11 +1240,14 @@ function TaskRowBody({
               <span className="truncate">{team.name}</span>
             </>
           )}
-          {task.tag && (
-            <>
+          {(task.tags ?? []).slice(0, 2).map((tag) => (
+            <span key={tag} className="flex items-center gap-1 truncate max-w-[80px]">
               <span>·</span>
-              <span className="truncate">{task.tag}</span>
-            </>
+              <span className="truncate">{tag}</span>
+            </span>
+          ))}
+          {(task.tags?.length ?? 0) > 2 && (
+            <span className="text-[10px]">+{(task.tags!.length - 2)}</span>
           )}
         </div>
       </div>
@@ -1565,12 +1568,21 @@ function TaskBar({
                   TBC
                 </Badge>
               )}
-              {task.tag && (
+              {(task.tags ?? []).slice(0, 2).map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="secondary"
+                  className="ml-1.5 h-4 px-1 text-[9px] bg-black/20 text-white border-0"
+                >
+                  {tag}
+                </Badge>
+              ))}
+              {(task.tags?.length ?? 0) > 2 && (
                 <Badge
                   variant="secondary"
                   className="ml-1.5 h-4 px-1 text-[9px] bg-black/20 text-white border-0"
                 >
-                  {task.tag}
+                  +{task.tags!.length - 2}
                 </Badge>
               )}
             </div>
@@ -1599,17 +1611,18 @@ function TaskBar({
             <span className="text-muted-foreground">Team: </span>
             <span className="font-medium">{team?.name ?? "No team"}</span>
           </div>
-          {(task.tag || task.tbc) && (
+          {((task.tags?.length ?? 0) > 0 || task.tbc) && (
             <div className="flex flex-wrap gap-1 pt-0.5">
-              {task.tag && (
+              {(task.tags ?? []).map((tag) => (
                 <Badge
+                  key={tag}
                   variant="secondary"
                   className="h-4 px-1.5 text-[10px] text-white border-0"
                   style={{ backgroundColor: task.color }}
                 >
-                  {task.tag}
+                  {tag}
                 </Badge>
-              )}
+              ))}
               {task.tbc && (
                 <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
                   To be confirmed
@@ -1814,19 +1827,16 @@ function TaskEditor({
         </div>
 
         <div>
-          <Label className="text-xs">Tag</Label>
-          <Input
-            list={`tag-suggestions-${task.id}`}
-            value={task.tag ?? ""}
-            onChange={(e) => onChange({ tag: e.target.value || undefined })}
-            placeholder="e.g. Design, Backend"
-            className="mt-1"
+          <Label className="text-xs">Tags</Label>
+          <TagEditor
+            tags={task.tags ?? []}
+            allTags={Array.from(
+              new Set(chartTasks.flatMap((t) => t.tags ?? [])),
+            ).sort((a, b) => a.localeCompare(b))}
+            color={task.color}
+            listId={`tag-suggestions-${task.id}`}
+            onChange={(tags) => onChange({ tags })}
           />
-          <datalist id={`tag-suggestions-${task.id}`}>
-            {Array.from(new Set(chartTasks.map((t) => t.tag).filter((t): t is string => !!t && t !== task.tag))).sort((a, b) => a.localeCompare(b)).map((t) => (
-              <option key={t} value={t} />
-            ))}
-          </datalist>
         </div>
 
         <div>
@@ -2178,7 +2188,7 @@ function CapacityCellDialog({
                     <div className="truncate text-sm font-medium">{task.name}</div>
                     <div className="text-xs text-muted-foreground">
                       {start} – {end}
-                      {task.tag ? ` · ${task.tag}` : ""}
+                      {task.tags?.length ? ` · ${task.tags.join(", ")}` : ""}
                     </div>
                   </div>
                   <Badge variant="secondary" className="shrink-0">
@@ -2193,5 +2203,93 @@ function CapacityCellDialog({
     </Dialog>
   );
 }
+
+/* ---------------- Tag editor ---------------- */
+
+function TagEditor({
+  tags,
+  allTags,
+  color,
+  listId,
+  onChange,
+}: {
+  tags: string[];
+  allTags: string[];
+  color: string;
+  listId: string;
+  onChange: (tags: string[]) => void;
+}) {
+  const [input, setInput] = useState("");
+  const lowerSet = new Set(tags.map((t) => t.toLowerCase()));
+
+  const commit = (raw: string) => {
+    const next = normalizeTags([...tags, ...raw.split(",")]);
+    if (next.length !== tags.length || next.some((v, i) => v !== tags[i])) {
+      onChange(next);
+    }
+    setInput("");
+  };
+
+  const removeAt = (idx: number) => {
+    const next = tags.filter((_, i) => i !== idx);
+    onChange(next);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      const v = input.trim();
+      if (v) commit(v);
+    } else if (e.key === "Backspace" && input === "" && tags.length > 0) {
+      e.preventDefault();
+      removeAt(tags.length - 1);
+    }
+  };
+
+  return (
+    <div className="mt-1 space-y-1.5">
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {tags.map((tag, idx) => (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-white"
+              style={{ backgroundColor: color }}
+            >
+              {tag}
+              <button
+                type="button"
+                onClick={() => removeAt(idx)}
+                className="opacity-80 hover:opacity-100"
+                aria-label={`Remove ${tag}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <Input
+        list={listId}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => {
+          const v = input.trim();
+          if (v) commit(v);
+        }}
+        placeholder="Type and press Enter"
+      />
+      <datalist id={listId}>
+        {allTags
+          .filter((t) => !lowerSet.has(t.toLowerCase()))
+          .map((t) => (
+            <option key={t} value={t} />
+          ))}
+      </datalist>
+    </div>
+  );
+}
+
 
 
