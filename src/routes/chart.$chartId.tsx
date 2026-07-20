@@ -56,7 +56,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { useGanttStore, TASK_COLORS, computeChartSignature, type Task, type Team, type Role } from "@/lib/gantt-store";
+import { useGanttStore, TASK_COLORS, computeChartSignature, normalizeTags, type Task, type Team, type Role } from "@/lib/gantt-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
