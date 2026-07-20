@@ -76,9 +76,10 @@ type Actions = {
   ) => number;
   importChartTasks: (
     chartId: string,
-    incoming: { tasks: Task[]; name?: string; startDate?: string },
+    incoming: { tasks: Task[]; name?: string; startDate?: string; teams?: Team[] },
     mode: "merge" | "replace",
   ) => number;
+
   addTeam: (chartId: string, name?: string, color?: string) => string;
   renameTeam: (chartId: string, teamId: string, name: string) => void;
   setTeamColor: (chartId: string, teamId: string, color: string) => void;
