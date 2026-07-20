@@ -1,26 +1,26 @@
-## Goal
-In the Capacity view, clicking a heatmap cell (team + role + week) opens a details panel listing every task contributing to that cell, with its allocation quantity, so you can quickly see what's driving demand or an overallocation.
+## Problem
+The JSON export **does** include teams (verified — the uploaded file has `teams` at line 493 with roles nested). What went wrong is the **chart-level Import** button inside the editor only restores tasks — it calls `importChartTasks`, which never touches `chart.teams`. Worse, that same function filters `demands` down to role IDs that already exist in the destination chart, so importing into an empty chart silently strips every role allocation as well.
 
-## Scope
-Only affects the Capacity heatmap in `src/routes/chart.$chartId.tsx`. No changes to store, export/import, or PDF.
+Result: after re-importing over a chart that had no teams (or different teams), teams disappear and demands are wiped.
 
-## UX
-- Cells become buttons with a pointer cursor and focus ring; hover shows a subtle highlight.
-- Clicking a cell opens a **Dialog** (shadcn) titled with the team, role, and week label (e.g. "Cloud · Snr Dev · Week of 12 Aug 2026").
-- Dialog body shows:
-  - Summary line: `Allocated X / Capacity Y` with a red tint when over capacity, amber when at capacity, otherwise neutral.
-  - Table of contributing tasks: task name (color dot + tag), demand quantity for that role, task date range. Rows are clickable and open that task in the existing task editor (closing the dialog).
-  - Empty state ("No tasks allocated") when the cell is zero.
-- Close via the standard dialog close button or Escape.
-- Keyboard: cells are `<button>` elements so Tab/Enter work.
+## Fix
 
-## Technical notes
-- Add local state in `ChartEditor`: `capacityCell: { teamId: string; roleId: string; week: number } | null`.
-- Pass an `onCellClick` prop into `CapacityHeatmap`; wrap each cell `<div>` as a `<button type="button">` and call it with the coordinates.
-- Compute the dialog's task list on the fly from `visibleTasks`: filter by `teamId`, week within `[startWeek, startWeek+durationWeeks)`, and a demand entry matching `roleId` with `quantity > 0`.
-- Reuse the existing `formatWeekLabel`/date helpers already in the file for the header.
-- Reuse the existing task-selection mechanism (setting `selectedTaskId`) for the "open task" row action.
+Make the chart-level import restore teams/roles alongside tasks.
+
+1. **`src/lib/gantt-store.ts` — extend `importChartTasks`**
+   - Accept optional `teams` on the incoming payload.
+   - **Replace mode**: replace `chart.teams` with `incoming.teams` (normalized: ensure each team has `roles: []`). Then import tasks as-is (no demand filtering needed — role IDs come from the same file).
+   - **Merge mode**: merge teams by `id` — keep existing teams, append any incoming team whose `id` isn't already present; for teams that match by id, append any new roles by id. Then run the existing demand sanitization against the merged role set.
+   - Rename to keep the signature backward compatible: the `incoming` argument gains an optional `teams?: Team[]` field.
+
+2. **`src/routes/chart.$chartId.tsx` — pass teams through on import**
+   - In the file-picker handler that builds `pendingImport`, include `teams: parsed.chart.teams` (and `name` / `startDate`, which already flow through).
+   - Update the Import dialog copy to mention teams, e.g. *"This file contains N tasks and M teams. Replace everything in this chart, or merge with what's here?"*
+
+3. **Recovery for the user**
+   - The uploaded backup still has the teams. After the fix ships, re-importing `R-D-Roadmap-2026-07-17_9.json` with **Replace** will restore teams, roles, and all demand quantities in one shot.
 
 ## Out of scope
-- Editing demand from within the dialog (still done in the task editor).
-- Bulk actions or rebalancing suggestions.
+- Home-page import (already handles teams correctly via `importCharts`).
+- PDF export of capacity data.
+- Any change to the export format — it already contains everything needed.
