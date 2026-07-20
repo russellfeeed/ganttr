@@ -2008,107 +2008,116 @@ function CapacityHeatmap({
     return "hsl(0 84% 60% / 0.85)";
   };
 
-  return (
-    <div className="flex flex-1 overflow-hidden">
-      <div className="flex-1 overflow-auto">
-        {teamsWithRoles.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">
-            Add roles with headcount to teams in the Teams menu to see capacity here.
-          </div>
-        ) : (
-          <div className="min-w-max">
-            {/* Header */}
-            <div
-              className="sticky top-0 z-10 flex border-b border-border bg-background"
-              style={{ height: HEADER_HEIGHT }}
-            >
-              <div
-                className="shrink-0 border-r border-border px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                style={{ width: NAME_COL }}
-              >
-                Team / Role
-              </div>
-              <div className="flex">
-                {Array.from({ length: totalWeeks }).map((_, w) => (
-                  <div
-                    key={w}
-                    className="shrink-0 border-r border-border px-1 py-1 text-[10px] text-muted-foreground text-center"
-                    style={{ width: weekWidth }}
-                  >
-                    {format(addWeeks(chartStart, w), "MMM d")}
-                  </div>
-                ))}
-              </div>
-            </div>
+  if (teamsWithRoles.length === 0) {
+    return (
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 overflow-auto p-8 text-center text-sm text-muted-foreground">
+          Add roles with headcount to teams in the Teams menu to see capacity here.
+        </div>
+      </div>
+    );
+  }
 
-            {/* Rows */}
-            {teamsWithRoles.map((team) => (
-              <div key={team.id}>
-                <div
-                  className="flex border-b border-border bg-muted/40"
-                  style={{ height: ROW_HEIGHT * 0.7 }}
-                >
-                  <div
-                    className="flex items-center gap-2 shrink-0 px-3 text-xs font-semibold"
-                    style={{ width: NAME_COL }}
-                  >
-                    <span
-                      className="h-2.5 w-2.5 rounded-sm"
-                      style={{ backgroundColor: team.color }}
-                    />
-                    {team.name}
-                  </div>
-                  <div style={{ width: totalWeeks * weekWidth }} />
-                </div>
-                {team.roles.map((role) => {
-                  const arr = demandByWeek.get(team.id)?.get(role.id);
-                  return (
-                    <div
-                      key={role.id}
-                      className="flex border-b border-border"
-                      style={{ height: ROW_HEIGHT }}
-                    >
-                      <div
-                        className="flex items-center justify-between shrink-0 border-r border-border px-3 text-xs"
-                        style={{ width: NAME_COL }}
-                      >
-                        <span className="truncate">{role.name}</span>
-                        <span className="text-[10px] text-muted-foreground">
-                          cap {role.headcount}
-                        </span>
-                      </div>
-                      <div className="flex">
-                        {Array.from({ length: totalWeeks }).map((_, w) => {
-                          const used = arr?.[w] ?? 0;
-                          const cap = role.headcount;
-                          const ratio = cap > 0 ? used / cap : used > 0 ? 2 : 0;
-                          const over = cap > 0 && used > cap;
-                          return (
-                            <button
-                              type="button"
-                              key={w}
-                              onClick={() => onCellClick(team.id, role.id, w)}
-                              className="shrink-0 border-r border-border flex items-center justify-center text-[10px] hover:ring-2 hover:ring-primary/60 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
-                              style={{
-                                width: weekWidth,
-                                height: "100%",
-                                backgroundColor: ratioColor(ratio),
-                                color: ratio > 0.85 ? "white" : undefined,
-                              }}
-                              title={`Week ${w + 1}: ${used}/${cap}${over ? " (over)" : ""}`}
-                            >
-                              {used > 0 ? `${used}/${cap}` : ""}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
+  const timelineWidth = totalWeeks * weekWidth;
+
+  return (
+    <div className="flex flex-1 overflow-y-auto">
+      {/* Fixed left column: team/role names */}
+      <div className="shrink-0 border-r border-border bg-background" style={{ width: NAME_COL }}>
+        <div
+          className="sticky top-0 z-20 border-b border-border bg-background px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+          style={{ height: HEADER_HEIGHT }}
+        >
+          Team / Role
+        </div>
+        {teamsWithRoles.map((team) => (
+          <div key={team.id}>
+            <div
+              className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 text-xs font-semibold"
+              style={{ height: ROW_HEIGHT * 0.7 }}
+            >
+              <span
+                className="h-2.5 w-2.5 rounded-sm"
+                style={{ backgroundColor: team.color }}
+              />
+              {team.name}
+            </div>
+            {team.roles.map((role) => (
+              <div
+                key={role.id}
+                className="flex items-center justify-between border-b border-border px-3 text-xs"
+                style={{ height: ROW_HEIGHT }}
+              >
+                <span className="truncate">{role.name}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  cap {role.headcount}
+                </span>
               </div>
             ))}
           </div>
-        )}
+        ))}
+      </div>
+
+      {/* Scrollable right pane: timeline */}
+      <div className="flex-1 overflow-x-auto">
+        <div style={{ width: timelineWidth }}>
+          <div
+            className="sticky top-0 z-10 flex border-b border-border bg-background"
+            style={{ height: HEADER_HEIGHT }}
+          >
+            {Array.from({ length: totalWeeks }).map((_, w) => (
+              <div
+                key={w}
+                className="shrink-0 border-r border-border px-1 py-1 text-[10px] text-muted-foreground text-center"
+                style={{ width: weekWidth }}
+              >
+                {format(addWeeks(chartStart, w), "MMM d")}
+              </div>
+            ))}
+          </div>
+          {teamsWithRoles.map((team) => (
+            <div key={team.id}>
+              <div
+                className="border-b border-border bg-muted/40"
+                style={{ height: ROW_HEIGHT * 0.7 }}
+              />
+              {team.roles.map((role) => {
+                const arr = demandByWeek.get(team.id)?.get(role.id);
+                return (
+                  <div
+                    key={role.id}
+                    className="flex border-b border-border"
+                    style={{ height: ROW_HEIGHT }}
+                  >
+                    {Array.from({ length: totalWeeks }).map((_, w) => {
+                      const used = arr?.[w] ?? 0;
+                      const cap = role.headcount;
+                      const ratio = cap > 0 ? used / cap : used > 0 ? 2 : 0;
+                      const over = cap > 0 && used > cap;
+                      return (
+                        <button
+                          type="button"
+                          key={w}
+                          onClick={() => onCellClick(team.id, role.id, w)}
+                          className="shrink-0 border-r border-border flex items-center justify-center text-[10px] hover:ring-2 hover:ring-primary/60 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+                          style={{
+                            width: weekWidth,
+                            height: "100%",
+                            backgroundColor: ratioColor(ratio),
+                            color: ratio > 0.85 ? "white" : undefined,
+                          }}
+                          title={`Week ${w + 1}: ${used}/${cap}${over ? " (over)" : ""}`}
+                        >
+                          {used > 0 ? `${used}/${cap}` : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
