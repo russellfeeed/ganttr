@@ -606,7 +606,7 @@ export const useGanttStore = create<State & Actions>()(
     }),
     {
       name: "gantt-store-v1",
-      version: 2,
+      version: 3,
       migrate: (persisted: any, version) => {
         if (!persisted || typeof persisted !== "object") return persisted;
         if (version < 1 && persisted.charts) {
@@ -624,6 +624,16 @@ export const useGanttStore = create<State & Actions>()(
             }
             if (Array.isArray(c.tasks)) {
               for (const task of c.tasks) if (!Array.isArray(task.demands)) task.demands = [];
+            }
+          }
+        }
+        if (version < 3 && persisted.charts) {
+          for (const id of Object.keys(persisted.charts)) {
+            const c = persisted.charts[id];
+            if (!c || !Array.isArray(c.tasks)) continue;
+            for (const task of c.tasks) {
+              task.tags = normalizeTags(task.tags, task.tag);
+              delete task.tag;
             }
           }
         }
