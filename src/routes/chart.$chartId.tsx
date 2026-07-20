@@ -1037,9 +1037,10 @@ function TeamRolesEditor({
           <Input
             type="number"
             min={0}
+            step={0.5}
             value={r.headcount}
             onChange={(e) =>
-              onSetRoleHeadcount(team.id, r.id, Math.max(0, parseInt(e.target.value) || 0))
+              onSetRoleHeadcount(team.id, r.id, Math.max(0, Math.round((parseFloat(e.target.value) || 0) * 2) / 2))
             }
             className="h-7 w-14 text-xs"
             aria-label="Headcount"
