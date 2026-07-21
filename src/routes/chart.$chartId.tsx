@@ -743,7 +743,7 @@ function ChartEditor() {
                 onDragEnd={onSortEnd}
               >
                 <SortableContext
-                  items={visibleTasks.map((t) => t.id)}
+                  items={displayRows.map((r) => r.key)}
                   strategy={verticalListSortingStrategy}
                 >
                   {displayRows.map((row) =>
