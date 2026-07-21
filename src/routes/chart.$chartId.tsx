@@ -2349,8 +2349,15 @@ function CapacityHealthBar({
         label="Unstaffed demand"
         value={unstaffedCells}
         tone={unstaffedCells > 0 ? "bad" : "muted"}
+        tooltip="Role demand that cannot be filled because the assigned team has no people in that role, or fewer than required."
       />
-      <Stat label="Coverage" value={`${coverage}%`} tone="muted" />
+      <Stat
+        label="Coverage"
+        value={`${coverage}%`}
+        tone="muted"
+        tooltip="Percentage of total weekly role demand that is covered by available headcount in the assigned teams."
+      />
+
       {peak && (
         <div className="text-[11px] opacity-90">
           Peak overload: <span className="font-medium">+{peak.over}</span> on{" "}
@@ -2368,10 +2375,12 @@ function Stat({
   label,
   value,
   tone,
+  tooltip,
 }: {
   label: string;
   value: number | string;
   tone: "muted" | "warn" | "bad";
+  tooltip?: string;
 }) {
   const toneClass =
     tone === "bad"
@@ -2379,13 +2388,30 @@ function Stat({
       : tone === "warn"
         ? "text-amber-600 dark:text-amber-400"
         : "text-muted-foreground";
+  const labelEl = <span className="opacity-80">{label}</span>;
   return (
     <div className="flex items-center gap-1.5">
       <span className={cn("font-semibold tabular-nums", toneClass)}>{value}</span>
-      <span className="opacity-80">{label}</span>
+      {tooltip ? (
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-help opacity-80 underline decoration-dashed underline-offset-4">
+                {label}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs">
+              <p>{tooltip}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        labelEl
+      )}
     </div>
   );
 }
+
 
 
 // Keep import used to avoid unused warning (helper reserved for future date input)
