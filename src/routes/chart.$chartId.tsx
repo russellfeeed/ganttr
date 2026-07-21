@@ -437,6 +437,7 @@ function ChartEditor() {
       flexShrink: string;
     }[] = [];
     const expand = (node: HTMLElement) => {
+      if (node.dataset.exportClip === "1") return;
       const cs = getComputedStyle(node);
       const scrolls =
         /(auto|scroll|hidden)/.test(cs.overflowX) ||
@@ -462,6 +463,7 @@ function ChartEditor() {
         node.style.flexShrink = "0";
       }
     };
+
     const all = Array.from(el.querySelectorAll<HTMLElement>("*")).reverse();
     all.forEach(expand);
     expand(el);
@@ -1581,7 +1583,8 @@ function TimelineGrid({
   const height = Math.max(rowOffsets.total, 200);
 
   return (
-    <div className="relative" style={{ width, minWidth: "100%" }}>
+    <div className="relative overflow-hidden" data-export-clip="1" style={{ width, minWidth: "100%" }}>
+
       {/* Header */}
       <div
         className="sticky top-0 z-20 border-b border-border bg-background"
