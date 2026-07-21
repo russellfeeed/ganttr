@@ -122,7 +122,6 @@ function ChartEditor() {
     addTask,
     updateTask,
     deleteTask,
-    reorderTasks,
     moveTask,
     importChartTasks,
     addTeam,
