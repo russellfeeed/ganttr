@@ -3,21 +3,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { addWeeks, format, startOfWeek, formatISO, differenceInCalendarWeeks } from "date-fns";
 import {
-  DndContext,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import {
   ArrowLeft,
   Plus,
   Trash2,
@@ -137,7 +122,6 @@ function ChartEditor() {
     addTask,
     updateTask,
     deleteTask,
-    reorderTasks,
     moveTask,
     importChartTasks,
     addTeam,
@@ -207,7 +191,11 @@ function ChartEditor() {
 
   const displayRows = useMemo<DisplayRow[]>(() => {
     if (viewMode === "list" || viewMode === "capacity") {
-      return visibleTasks.map((t) => ({ kind: "task", task: t, key: t.id }));
+      const tasks =
+        viewMode === "list"
+          ? [...visibleTasks].sort((a, b) => a.startWeek - b.startWeek || a.name.localeCompare(b.name))
+          : visibleTasks;
+      return tasks.map((t) => ({ kind: "task", task: t, key: t.id }));
     }
     const rows: DisplayRow[] = [];
     const teamIds = new Set(teams.map((t) => t.id));
@@ -286,8 +274,6 @@ function ChartEditor() {
     return set;
   }, [visibleTasks, teams, demandByWeek, totalWeeks]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-
   const leftScrollRef = useRef<HTMLDivElement>(null);
   const rightScrollRef = useRef<HTMLDivElement>(null);
   const syncingRef = useRef(false);
@@ -306,16 +292,6 @@ function ChartEditor() {
   }
 
   const selectedTask = chart.tasks.find((t) => t.id === selectedTaskId) ?? null;
-
-  function onSortEnd(e: DragEndEvent) {
-    const { active, over } = e;
-    if (!over || active.id === over.id) return;
-    const ids = chart.tasks.map((t) => t.id);
-    const oldIdx = ids.indexOf(String(active.id));
-    const newIdx = ids.indexOf(String(over.id));
-    if (oldIdx < 0 || newIdx < 0) return;
-    reorderTasks(chart.id, arrayMove(ids, oldIdx, newIdx));
-  }
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -733,29 +709,21 @@ function ChartEditor() {
           >
 
             {viewMode === "list" ? (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={onSortEnd}
-              >
-                <SortableContext
-                  items={visibleTasks.map((t) => t.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {displayRows.map((row) =>
-                    row.kind === "task" ? (
-                      <TaskRow
-                        key={row.key}
-                        task={row.task}
-                        team={teams.find((t) => t.id === row.task.teamId) ?? null}
-                        selected={selectedTaskId === row.task.id}
-                        overallocated={overallocatedTaskIds.has(row.task.id)}
-                        onSelect={() => setSelectedTaskId(row.task.id)}
-                      />
-                    ) : null,
-                  )}
-                </SortableContext>
-              </DndContext>
+              <div>
+                {displayRows.map((row) =>
+                  row.kind === "task" ? (
+                    <TaskRowStatic
+                      key={row.key}
+                      task={row.task}
+                      team={teams.find((t) => t.id === row.task.teamId) ?? null}
+                      selected={selectedTaskId === row.task.id}
+                      overallocated={overallocatedTaskIds.has(row.task.id)}
+                      onSelect={() => setSelectedTaskId(row.task.id)}
+                      draggable={false}
+                    />
+                  ) : null,
+                )}
+              </div>
             ) : (
               <div>
                 {displayRows.map((row) =>
@@ -1178,55 +1146,7 @@ function LaneHeader({
   );
 }
 
-/* ---------------- Task row (sortable, list mode) ---------------- */
-
-function TaskRow({
-  task,
-  team,
-  selected,
-  overallocated,
-  onSelect,
-}: {
-  task: Task;
-  team: Team | null;
-  selected: boolean;
-  overallocated?: boolean;
-  onSelect: () => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: task.id,
-  });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    height: ROW_HEIGHT,
-    opacity: isDragging ? 0.5 : 1,
-  };
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      onClick={onSelect}
-      className={cn(
-        "flex items-center gap-2 border-b border-border px-2 cursor-pointer",
-        selected && "bg-accent",
-      )}
-    >
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab text-muted-foreground hover:text-foreground"
-        onClick={(e) => e.stopPropagation()}
-        aria-label="Drag to reorder"
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
-      <TaskRowBody task={task} team={team} overallocated={overallocated} />
-    </div>
-  );
-}
-
-/* ---------------- Task row (static, swimlane mode) ---------------- */
+/* ---------------- Task row (static, list/swimlane mode) ---------------- */
 
 function TaskRowStatic({
   task,
@@ -1234,27 +1154,31 @@ function TaskRowStatic({
   selected,
   overallocated,
   onSelect,
+  draggable = true,
 }: {
   task: Task;
   team: Team | null;
   selected: boolean;
   overallocated?: boolean;
   onSelect: () => void;
+  draggable?: boolean;
 }) {
   return (
     <div
-      draggable
+      draggable={draggable}
       onDragStart={(e) => {
+        if (!draggable) return;
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("application/x-task-id", task.id);
       }}
       onClick={onSelect}
       style={{ height: ROW_HEIGHT }}
       className={cn(
-        "flex items-center gap-2 border-b border-border pl-6 pr-2 cursor-grab active:cursor-grabbing",
+        "flex items-center gap-2 border-b border-border pl-6 pr-2",
+        draggable && "cursor-grab active:cursor-grabbing",
         selected && "bg-accent",
       )}
-      title="Drag onto a team lane to assign"
+      title={draggable ? "Drag onto a team lane to assign" : undefined}
     >
       <TaskRowBody task={task} team={team} overallocated={overallocated} />
     </div>
