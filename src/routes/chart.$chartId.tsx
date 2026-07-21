@@ -437,6 +437,7 @@ function ChartEditor() {
       flexShrink: string;
     }[] = [];
     const expand = (node: HTMLElement) => {
+      if (node.dataset.exportClip === "1") return;
       const cs = getComputedStyle(node);
       const scrolls =
         /(auto|scroll|hidden)/.test(cs.overflowX) ||
@@ -462,6 +463,7 @@ function ChartEditor() {
         node.style.flexShrink = "0";
       }
     };
+
     const all = Array.from(el.querySelectorAll<HTMLElement>("*")).reverse();
     all.forEach(expand);
     expand(el);
