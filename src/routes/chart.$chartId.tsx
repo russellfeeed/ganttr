@@ -260,8 +260,10 @@ function ChartEditor() {
       const tasks = [...listSwimlaneTasks].sort(
         (a, b) => a.startWeek - b.startWeek || a.name.localeCompare(b.name),
       );
+      console.log("displayRows list", tasks.length, tasks.map((t) => t.name));
       return tasks.map((t) => ({ kind: "task", task: t, key: t.id }));
     }
+
     if (viewMode === "capacity") {
       return visibleTasks.map((t) => ({ kind: "task", task: t, key: t.id }));
     }
