@@ -6,11 +6,30 @@ export type PdfRow =
   | { kind: "header"; team: Team | null; count: number }
   | { kind: "task"; task: Task };
 
+export type PdfCapacityHealth = {
+  score: number;
+  band: "healthy" | "at-risk" | "overloaded";
+  overCells: number;
+  atCapCells: number;
+  unstaffedCells: number;
+  totalCells: number;
+  allocatedCells: number;
+  peak: { over: number; roleName: string; teamName: string; week: number } | null;
+};
+
+export type PdfCapacity = {
+  teams: Team[];
+  // team.id -> role.id -> weeks[]
+  demandByWeek: Map<string, Map<string, number[]>>;
+  health: PdfCapacityHealth;
+};
+
 type Opts = {
   chart: Chart;
   rows: PdfRow[];
   totalWeeks: number;
   viewMode: "list" | "swimlanes";
+  capacity?: PdfCapacity;
 };
 
 // A4 landscape in mm
