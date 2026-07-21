@@ -108,6 +108,7 @@ function ChartEditor() {
     { teamId: string; roleId: string; week: number } | null
   >(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [noResourcesOnly, setNoResourcesOnly] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = useState<{
     tasks: Task[];
