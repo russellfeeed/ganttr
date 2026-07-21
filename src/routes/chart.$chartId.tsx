@@ -207,7 +207,11 @@ function ChartEditor() {
 
   const displayRows = useMemo<DisplayRow[]>(() => {
     if (viewMode === "list" || viewMode === "capacity") {
-      return visibleTasks.map((t) => ({ kind: "task", task: t, key: t.id }));
+      const tasks =
+        viewMode === "list"
+          ? [...visibleTasks].sort((a, b) => a.startWeek - b.startWeek || a.name.localeCompare(b.name))
+          : visibleTasks;
+      return tasks.map((t) => ({ kind: "task", task: t, key: t.id }));
     }
     const rows: DisplayRow[] = [];
     const teamIds = new Set(teams.map((t) => t.id));
