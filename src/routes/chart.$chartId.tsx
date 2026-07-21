@@ -715,11 +715,25 @@ function ChartEditor() {
                         ? { kind: "header", team: r.team, count: r.count }
                         : { kind: "task", task: r.task },
                     );
+                    const teamsWithRoles = teams.filter((t) => (t.roles ?? []).length > 0);
+                    const capacity =
+                      teamsWithRoles.length > 0
+                        ? {
+                            teams: teamsWithRoles,
+                            demandByWeek,
+                            health: computeCapacityHealth(
+                              teamsWithRoles,
+                              demandByWeek,
+                              totalWeeks,
+                            ),
+                          }
+                        : undefined;
                     exportChartToPdf({
                       chart,
                       rows: pdfRows,
                       totalWeeks,
                       viewMode: viewMode === "capacity" ? "list" : viewMode,
+                      capacity,
                     });
                     toast.success("PDF exported");
                     markChartExported(chart.id);
