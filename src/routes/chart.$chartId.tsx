@@ -1146,55 +1146,7 @@ function LaneHeader({
   );
 }
 
-/* ---------------- Task row (sortable, list mode) ---------------- */
-
-function TaskRow({
-  task,
-  team,
-  selected,
-  overallocated,
-  onSelect,
-}: {
-  task: Task;
-  team: Team | null;
-  selected: boolean;
-  overallocated?: boolean;
-  onSelect: () => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: task.id,
-  });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    height: ROW_HEIGHT,
-    opacity: isDragging ? 0.5 : 1,
-  };
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      onClick={onSelect}
-      className={cn(
-        "flex items-center gap-2 border-b border-border px-2 cursor-pointer",
-        selected && "bg-accent",
-      )}
-    >
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab text-muted-foreground hover:text-foreground"
-        onClick={(e) => e.stopPropagation()}
-        aria-label="Drag to reorder"
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
-      <TaskRowBody task={task} team={team} overallocated={overallocated} />
-    </div>
-  );
-}
-
-/* ---------------- Task row (static, swimlane mode) ---------------- */
+/* ---------------- Task row (static, list/swimlane mode) ---------------- */
 
 function TaskRowStatic({
   task,
