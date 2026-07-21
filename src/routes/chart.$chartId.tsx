@@ -216,7 +216,10 @@ function ChartEditor() {
         count: g.tasks.length,
         key: `h-${g.team?.id ?? "none"}`,
       });
-      for (const t of g.tasks) rows.push({ kind: "task", task: t, key: t.id });
+      const sorted = [...g.tasks].sort(
+        (a, b) => a.startWeek - b.startWeek || a.name.localeCompare(b.name),
+      );
+      for (const t of sorted) rows.push({ kind: "task", task: t, key: t.id });
     }
     return rows;
   }, [viewMode, visibleTasks, teams]);
