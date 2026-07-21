@@ -72,7 +72,8 @@ export function ExportRangeDialog({
     () => weeksUntil(chartStart, selectedDate),
     [chartStart, selectedDate],
   );
-  const tooShort = resolvedWeeks < requiredWeeks;
+  const tooShort = resolvedWeeks < 1;
+  const truncates = resolvedWeeks < requiredWeeks;
   const endWeekStart = useMemo(
     () => addWeeks(chartStart, Math.max(0, resolvedWeeks - 1)),
     [chartStart, resolvedWeeks],
