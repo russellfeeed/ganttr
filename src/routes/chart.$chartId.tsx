@@ -1655,11 +1655,14 @@ function TaskBar({
             <div className="text-xs pt-1 border-t border-border/60">
               <div className="text-muted-foreground mb-0.5">Resources</div>
               <ul className="space-y-0.5">
-                {demands.map((d) => (
-                  <li key={d.roleId}>
-                    {d.quantity} × {roleNameById.get(d.roleId) ?? "Unknown role"}
-                  </li>
-                ))}
+                {demands.map((d) => {
+                  const name = roleNameById.get(d.roleId);
+                  return (
+                    <li key={d.roleId} className={name ? undefined : "italic text-amber-300"}>
+                      {d.quantity} × {name ?? "Unknown role (orphaned)"}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
