@@ -187,8 +187,19 @@ function ChartEditor() {
     }).filter((t) => {
       if (!normalizedSearch) return true;
       return t.name.toLowerCase().includes(normalizedSearch);
+    }).filter((t) => {
+      if (!noResourcesOnly) return true;
+      const demands = t.demands ?? [];
+      return demands.length === 0 || demands.every((d) => d.quantity <= 0);
     });
-  }, [chart?.tasks, tagFilter, teamFilter, normalizedSearch]);
+  }, [chart?.tasks, tagFilter, teamFilter, normalizedSearch, noResourcesOnly]);
+
+  const noResourcesCount = useMemo(() => {
+    return (chart?.tasks ?? []).filter((t) => {
+      const demands = t.demands ?? [];
+      return demands.length === 0 || demands.every((d) => d.quantity <= 0);
+    }).length;
+  }, [chart?.tasks]);
 
   const displayRows = useMemo<DisplayRow[]>(() => {
     if (viewMode === "list" || viewMode === "capacity") {
