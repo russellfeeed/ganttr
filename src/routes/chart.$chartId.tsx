@@ -21,7 +21,11 @@ import {
   TriangleAlert,
   BarChart3,
   ChevronDown,
+  Image as ImageIcon,
 } from "lucide-react";
+
+import { toJpeg } from "html-to-image";
+
 
 import { toast } from "sonner";
 import {
@@ -358,6 +362,7 @@ function ChartEditor() {
 
   const leftScrollRef = useRef<HTMLDivElement>(null);
   const rightScrollRef = useRef<HTMLDivElement>(null);
+  const mainViewRef = useRef<HTMLDivElement>(null);
   const syncingRef = useRef(false);
 
   if (!chart) {
@@ -747,6 +752,68 @@ function ChartEditor() {
                 Export PDF
               </DropdownMenuItem>
               <DropdownMenuItem
+                onClick={async () => {
+                  const el = mainViewRef.current;
+                  if (!el) return;
+                  const touched: { el: HTMLElement; overflow: string; width: string; height: string; maxHeight: string }[] = [];
+                  const expand = (node: HTMLElement) => {
+                    const cs = getComputedStyle(node);
+                    const scrolls =
+                      /(auto|scroll|hidden)/.test(cs.overflowX) ||
+                      /(auto|scroll|hidden)/.test(cs.overflowY);
+                    if (scrolls) {
+                      touched.push({
+                        el: node,
+                        overflow: node.style.overflow,
+                        width: node.style.width,
+                        height: node.style.height,
+                        maxHeight: node.style.maxHeight,
+                      });
+                      node.style.overflow = "visible";
+                      node.style.width = `${node.scrollWidth}px`;
+                      node.style.height = `${node.scrollHeight}px`;
+                      node.style.maxHeight = "none";
+                    }
+                  };
+                  expand(el);
+                  el.querySelectorAll<HTMLElement>("*").forEach(expand);
+                  try {
+                    // Let the browser re-layout with expanded sizes
+                    await new Promise((r) => requestAnimationFrame(() => r(null)));
+                    const bg =
+                      getComputedStyle(document.body).backgroundColor || "#ffffff";
+                    const dataUrl = await toJpeg(el, {
+                      quality: 0.92,
+                      pixelRatio: 2,
+                      backgroundColor: bg,
+                      cacheBust: true,
+                    });
+                    const a = document.createElement("a");
+                    const safeName = (chart.name || "chart").replace(/[^\w\-]+/g, "_");
+                    a.href = dataUrl;
+                    a.download = `${safeName}-${viewMode}-${format(new Date(), "yyyy-MM-dd")}.jpg`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    toast.success("JPG exported");
+                    markChartExported(chart.id);
+                  } catch (err) {
+                    console.error(err);
+                    toast.error("Couldn't export JPG");
+                  } finally {
+                    for (const t of touched) {
+                      t.el.style.overflow = t.overflow;
+                      t.el.style.width = t.width;
+                      t.el.style.height = t.height;
+                      t.el.style.maxHeight = t.maxHeight;
+                    }
+                  }
+                }}
+              >
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Export JPG (current view)
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 onClick={() => {
                   try {
                     const { filename, csv, duplicateNames } = exportChartToZohoCsv(chart);
@@ -791,7 +858,7 @@ function ChartEditor() {
       </header>
 
       {/* Main split */}
-      <div className="flex flex-1 overflow-hidden">
+      <div ref={mainViewRef} className="flex flex-1 overflow-hidden">
       {viewMode === "capacity" ? (
         <div className="flex flex-1 overflow-hidden">
           <CapacityHeatmap
