@@ -2104,6 +2104,11 @@ function CapacityHeatmap({
     return "hsl(0 84% 60% / 0.85)";
   };
 
+  const health = useMemo(
+    () => computeCapacityHealth(teamsWithRoles, demandByWeek, totalWeeks),
+    [teamsWithRoles, demandByWeek, totalWeeks],
+  );
+
   if (teamsWithRoles.length === 0) {
     return (
       <div className="flex flex-1 overflow-hidden">
@@ -2117,7 +2122,10 @@ function CapacityHeatmap({
   const timelineWidth = totalWeeks * weekWidth;
 
   return (
-    <div className="flex flex-1 overflow-y-auto">
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <CapacityHealthBar health={health} chartStart={chartStart} />
+      <div className="flex flex-1 overflow-y-auto">
+
       {/* Fixed left column: team/role names */}
       <div className="shrink-0 border-r border-border bg-background" style={{ width: NAME_COL }}>
         <div
@@ -2215,9 +2223,170 @@ function CapacityHeatmap({
           ))}
         </div>
       </div>
+      </div>
     </div>
   );
 }
+
+type CapacityHealth = {
+  score: number;
+  band: "healthy" | "at-risk" | "overloaded";
+  overCells: number;
+  atCapCells: number;
+  unstaffedCells: number;
+  totalCells: number;
+  allocatedCells: number;
+  peak: { over: number; roleName: string; teamName: string; week: number } | null;
+};
+
+function computeCapacityHealth(
+  teams: Team[],
+  demandByWeek: Map<string, Map<string, number[]>>,
+  totalWeeks: number,
+): CapacityHealth {
+  let penaltySum = 0;
+  let penaltyCells = 0;
+  let overCells = 0;
+  let atCapCells = 0;
+  let unstaffedCells = 0;
+  let allocatedCells = 0;
+  let totalCells = 0;
+  let peak: CapacityHealth["peak"] = null;
+
+  for (const team of teams) {
+    for (const role of team.roles ?? []) {
+      const arr = demandByWeek.get(team.id)?.get(role.id);
+      const cap = role.headcount;
+      for (let w = 0; w < totalWeeks; w++) {
+        const used = arr?.[w] ?? 0;
+        totalCells++;
+        if (used > 0) allocatedCells++;
+        if (cap <= 0) {
+          if (used > 0) {
+            unstaffedCells++;
+            penaltySum += 100;
+            penaltyCells++;
+          }
+          continue;
+        }
+        penaltyCells++;
+        const ratio = used / cap;
+        if (ratio > 1) {
+          overCells++;
+          const overBy = used - cap;
+          if (!peak || overBy > peak.over) {
+            peak = { over: overBy, roleName: role.name, teamName: team.name, week: w };
+          }
+          penaltySum += Math.min(100, 30 + (ratio - 1) * 70);
+        } else if (ratio === 1) {
+          atCapCells++;
+          penaltySum += 10;
+        } else if (ratio > 0.85) {
+          penaltySum += 5;
+        }
+      }
+    }
+  }
+
+  const avgPenalty = penaltyCells > 0 ? penaltySum / penaltyCells : 0;
+  const score = Math.max(0, Math.min(100, Math.round(100 - avgPenalty)));
+  const band: CapacityHealth["band"] =
+    score >= 85 ? "healthy" : score >= 60 ? "at-risk" : "overloaded";
+
+  return {
+    score,
+    band,
+    overCells,
+    atCapCells,
+    unstaffedCells,
+    totalCells,
+    allocatedCells,
+    peak,
+  };
+}
+
+function CapacityHealthBar({
+  health,
+  chartStart,
+}: {
+  health: CapacityHealth;
+  chartStart: Date;
+}) {
+  const { score, band, overCells, atCapCells, unstaffedCells, allocatedCells, totalCells, peak } =
+    health;
+  const bandLabel = band === "healthy" ? "Healthy" : band === "at-risk" ? "At risk" : "Overloaded";
+  const bandClass =
+    band === "healthy"
+      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+      : band === "at-risk"
+        ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+        : "border-destructive/50 bg-destructive/10 text-destructive";
+  const scoreColor =
+    band === "healthy"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : band === "at-risk"
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-destructive";
+  const coverage = totalCells > 0 ? Math.round((allocatedCells / totalCells) * 100) : 0;
+
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-x-6 gap-y-2 border-b px-4 py-2 text-xs",
+        bandClass,
+      )}
+    >
+      <div className="flex items-baseline gap-2">
+        <span className={cn("text-2xl font-semibold leading-none", scoreColor)}>{score}</span>
+        <span className="text-[10px] uppercase tracking-wide opacity-80">/ 100</span>
+        <span className="ml-2 rounded-full border border-current px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">
+          {bandLabel}
+        </span>
+      </div>
+      <Stat label="Overallocated" value={overCells} tone={overCells > 0 ? "bad" : "muted"} />
+      <Stat label="At capacity" value={atCapCells} tone={atCapCells > 0 ? "warn" : "muted"} />
+      <Stat
+        label="Unstaffed demand"
+        value={unstaffedCells}
+        tone={unstaffedCells > 0 ? "bad" : "muted"}
+      />
+      <Stat label="Coverage" value={`${coverage}%`} tone="muted" />
+      {peak && (
+        <div className="text-[11px] opacity-90">
+          Peak overload: <span className="font-medium">+{peak.over}</span> on{" "}
+          <span className="font-medium">
+            {peak.teamName} · {peak.roleName}
+          </span>{" "}
+          (week of {format(addWeeks(chartStart, peak.week), "d MMM")})
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  tone: "muted" | "warn" | "bad";
+}) {
+  const toneClass =
+    tone === "bad"
+      ? "text-destructive"
+      : tone === "warn"
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-muted-foreground";
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={cn("font-semibold tabular-nums", toneClass)}>{value}</span>
+      <span className="opacity-80">{label}</span>
+    </div>
+  );
+}
+
 
 // Keep import used to avoid unused warning (helper reserved for future date input)
 void differenceInCalendarWeeks;
