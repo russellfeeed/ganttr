@@ -457,6 +457,18 @@ function ChartEditor() {
           )}
 
           {(chart?.tasks ?? []).length > 0 && (
+            <Button
+              variant={noResourcesOnly ? "default" : "outline"}
+              size="sm"
+              className="h-9"
+              onClick={() => setNoResourcesOnly((v) => !v)}
+              title="Show only tasks with no resources allocated"
+            >
+              No resources ({noResourcesCount})
+            </Button>
+          )}
+
+          {(chart?.tasks ?? []).length > 0 && (
             <Select value={tagFilter} onValueChange={setTagFilter}>
               <SelectTrigger className="h-9 w-[140px]">
                 <SelectValue />
