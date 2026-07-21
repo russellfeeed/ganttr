@@ -2243,13 +2243,13 @@ function CapacityHeatmap({
 }
 
 type CapacityHealth = {
-  score: number;
-  band: "healthy" | "at-risk" | "overloaded";
+  score: number | null;
+  band: "healthy" | "at-risk" | "overloaded" | "none";
   overCells: number;
   atCapCells: number;
   unstaffedCells: number;
-  totalCells: number;
-  allocatedCells: number;
+  activeCells: number;
+  coverage: number | null;
   peak: { over: number; roleName: string; teamName: string; week: number } | null;
 };
 
@@ -2259,12 +2259,12 @@ function computeCapacityHealth(
   totalWeeks: number,
 ): CapacityHealth {
   let penaltySum = 0;
-  let penaltyCells = 0;
+  let activeCells = 0;
   let overCells = 0;
   let atCapCells = 0;
   let unstaffedCells = 0;
-  let allocatedCells = 0;
-  let totalCells = 0;
+  let totalDemand = 0;
+  let staffedDemand = 0;
   let peak: CapacityHealth["peak"] = null;
 
   for (const team of teams) {
@@ -2273,17 +2273,15 @@ function computeCapacityHealth(
       const cap = role.headcount;
       for (let w = 0; w < totalWeeks; w++) {
         const used = arr?.[w] ?? 0;
-        totalCells++;
-        if (used > 0) allocatedCells++;
+        if (used <= 0) continue; // empty cells excluded from all metrics
+        activeCells++;
+        totalDemand += used;
+        staffedDemand += Math.min(used, Math.max(0, cap));
         if (cap <= 0) {
-          if (used > 0) {
-            unstaffedCells++;
-            penaltySum += 100;
-            penaltyCells++;
-          }
+          unstaffedCells++;
+          penaltySum += 100;
           continue;
         }
-        penaltyCells++;
         const ratio = used / cap;
         if (ratio > 1) {
           overCells++;
@@ -2302,10 +2300,24 @@ function computeCapacityHealth(
     }
   }
 
-  const avgPenalty = penaltyCells > 0 ? penaltySum / penaltyCells : 0;
+  if (activeCells === 0) {
+    return {
+      score: null,
+      band: "none",
+      overCells,
+      atCapCells,
+      unstaffedCells,
+      activeCells,
+      coverage: null,
+      peak,
+    };
+  }
+
+  const avgPenalty = penaltySum / activeCells;
   const score = Math.max(0, Math.min(100, Math.round(100 - avgPenalty)));
   const band: CapacityHealth["band"] =
     score >= 85 ? "healthy" : score >= 60 ? "at-risk" : "overloaded";
+  const coverage = totalDemand > 0 ? Math.round((staffedDemand / totalDemand) * 100) : null;
 
   return {
     score,
@@ -2313,11 +2325,12 @@ function computeCapacityHealth(
     overCells,
     atCapCells,
     unstaffedCells,
-    totalCells,
-    allocatedCells,
+    activeCells,
+    coverage,
     peak,
   };
 }
+
 
 function CapacityHealthBar({
   health,
