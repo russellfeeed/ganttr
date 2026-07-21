@@ -2104,6 +2104,11 @@ function CapacityHeatmap({
     return "hsl(0 84% 60% / 0.85)";
   };
 
+  const health = useMemo(
+    () => computeCapacityHealth(teamsWithRoles, demandByWeek, totalWeeks),
+    [teamsWithRoles, demandByWeek, totalWeeks],
+  );
+
   if (teamsWithRoles.length === 0) {
     return (
       <div className="flex flex-1 overflow-hidden">
@@ -2117,7 +2122,10 @@ function CapacityHeatmap({
   const timelineWidth = totalWeeks * weekWidth;
 
   return (
-    <div className="flex flex-1 overflow-y-auto">
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <CapacityHealthBar health={health} chartStart={chartStart} />
+      <div className="flex flex-1 overflow-y-auto">
+
       {/* Fixed left column: team/role names */}
       <div className="shrink-0 border-r border-border bg-background" style={{ width: NAME_COL }}>
         <div
