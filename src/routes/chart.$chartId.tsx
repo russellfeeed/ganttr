@@ -175,7 +175,7 @@ function ChartEditor() {
   const [exportOverrideWeeks, setExportOverrideWeeks] = useState<number | null>(null);
   const [exportRequest, setExportRequest] = useState<null | { format: "pdf" | "jpg" }>(null);
   const totalWeeks =
-    exportOverrideWeeks != null ? Math.max(requiredWeeks, exportOverrideWeeks) : baseTotalWeeks;
+    exportOverrideWeeks != null ? Math.max(1, exportOverrideWeeks) : baseTotalWeeks;
 
   const chartStart = useMemo(
     () => new Date((chart?.startDate ?? "1970-01-01") + "T00:00:00"),
