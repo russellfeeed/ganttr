@@ -2327,18 +2327,46 @@ function CapacityHeatmap({
       <div className="flex-1 overflow-x-auto">
         <div style={{ width: timelineWidth }}>
           <div
-            className="sticky top-0 z-10 flex border-b border-border bg-background"
+            className="sticky top-0 z-10 border-b border-border bg-background"
             style={{ height: HEADER_HEIGHT }}
           >
-            {Array.from({ length: totalWeeks }).map((_, w) => (
-              <div
-                key={w}
-                className="shrink-0 border-r border-border px-1 py-1 text-[10px] text-muted-foreground text-center"
-                style={{ width: weekWidth }}
-              >
-                {format(addWeeks(chartStart, w), "MMM d")}
-              </div>
-            ))}
+            <div className="flex" style={{ height: HEADER_HEIGHT / 2 }}>
+              {(() => {
+                const spans: { label: string; span: number }[] = [];
+                let cur = "";
+                let n = 0;
+                for (let i = 0; i < totalWeeks; i++) {
+                  const label = format(addWeeks(chartStart, i), "MMM yyyy");
+                  if (label === cur) n++;
+                  else {
+                    if (n) spans.push({ label: cur, span: n });
+                    cur = label;
+                    n = 1;
+                  }
+                }
+                if (n) spans.push({ label: cur, span: n });
+                return spans.map((m, i) => (
+                  <div
+                    key={i}
+                    className="flex shrink-0 items-center border-r border-border px-2 text-xs font-medium text-muted-foreground"
+                    style={{ width: m.span * weekWidth }}
+                  >
+                    {m.label}
+                  </div>
+                ));
+              })()}
+            </div>
+            <div className="flex" style={{ height: HEADER_HEIGHT / 2 }}>
+              {Array.from({ length: totalWeeks }).map((_, w) => (
+                <div
+                  key={w}
+                  className="flex shrink-0 items-center justify-center border-r border-border text-[10px] text-muted-foreground"
+                  style={{ width: weekWidth }}
+                >
+                  {format(addWeeks(chartStart, w), "MMM d")}
+                </div>
+              ))}
+            </div>
           </div>
           {teamsWithRoles.map((team) => (
             <div key={team.id}>
