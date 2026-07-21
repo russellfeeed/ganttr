@@ -275,8 +275,6 @@ function ChartEditor() {
     return set;
   }, [visibleTasks, teams, demandByWeek, totalWeeks]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-
   const leftScrollRef = useRef<HTMLDivElement>(null);
   const rightScrollRef = useRef<HTMLDivElement>(null);
   const syncingRef = useRef(false);
