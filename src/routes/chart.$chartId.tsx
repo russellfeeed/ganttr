@@ -2250,7 +2250,7 @@ function CapacityHeatmap({
                 >
                   <span className="flex min-w-0 items-center gap-1.5 truncate">
                     {over && (
-                      <AlertTriangle className="h-3 w-3 shrink-0 text-destructive" />
+                      <TriangleAlert className="h-3 w-3 shrink-0 text-destructive" />
                     )}
                     <span className={`truncate ${over ? "font-medium text-destructive" : ""}`}>
                       {role.name}
