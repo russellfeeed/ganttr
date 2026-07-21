@@ -72,7 +72,8 @@ export function ExportRangeDialog({
     () => weeksUntil(chartStart, selectedDate),
     [chartStart, selectedDate],
   );
-  const tooShort = resolvedWeeks < requiredWeeks;
+  const tooShort = resolvedWeeks < 1;
+  const truncates = resolvedWeeks < requiredWeeks;
   const endWeekStart = useMemo(
     () => addWeeks(chartStart, Math.max(0, resolvedWeeks - 1)),
     [chartStart, resolvedWeeks],
@@ -160,12 +161,17 @@ export function ExportRangeDialog({
           <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
             {tooShort ? (
               <span className="text-destructive">
-                End date is before the last task. Pick a later month — earliest is {format(addWeeks(chartStart, Math.max(0, requiredWeeks - 1)), "MMM yyyy")}.
+                Pick a month on or after {format(chartStart, "MMM yyyy")}.
               </span>
             ) : (
               <>
                 Ends week of <span className="font-medium">{format(endWeekStart, "MMM d, yyyy")}</span>{" "}
                 · <span className="text-muted-foreground">{resolvedWeeks} weeks</span>
+                {truncates && (
+                  <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                    Truncates tasks extending past this date.
+                  </div>
+                )}
               </>
             )}
           </div>
