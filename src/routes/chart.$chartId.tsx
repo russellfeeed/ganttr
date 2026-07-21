@@ -718,10 +718,15 @@ function ChartEditor() {
         {/* Left panel */}
         <div className="flex flex-col border-r border-border" style={{ width: LEFT_PANEL }}>
           <div
-            className="flex shrink-0 items-center border-b border-border px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+            className="flex shrink-0 items-center justify-between border-b border-border px-4 text-xs font-medium uppercase tracking-wide text-muted-foreground"
             style={{ height: HEADER_HEIGHT }}
           >
-            Tasks
+            <span>Tasks</span>
+            <span className="text-[10px] normal-case tabular-nums">
+              {viewMode === "list" || viewMode === "swimlanes" ? (
+                <>total {visibleTasks.length}</>
+              ) : null}
+            </span>
           </div>
           <div
             ref={leftScrollRef}
