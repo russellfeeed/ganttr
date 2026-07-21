@@ -108,6 +108,7 @@ function ChartEditor() {
     { teamId: string; roleId: string; week: number } | null
   >(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [noResourcesOnly, setNoResourcesOnly] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = useState<{
     tasks: Task[];
@@ -186,8 +187,19 @@ function ChartEditor() {
     }).filter((t) => {
       if (!normalizedSearch) return true;
       return t.name.toLowerCase().includes(normalizedSearch);
+    }).filter((t) => {
+      if (!noResourcesOnly) return true;
+      const demands = t.demands ?? [];
+      return demands.length === 0 || demands.every((d) => d.quantity <= 0);
     });
-  }, [chart?.tasks, tagFilter, teamFilter, normalizedSearch]);
+  }, [chart?.tasks, tagFilter, teamFilter, normalizedSearch, noResourcesOnly]);
+
+  const noResourcesCount = useMemo(() => {
+    return (chart?.tasks ?? []).filter((t) => {
+      const demands = t.demands ?? [];
+      return demands.length === 0 || demands.every((d) => d.quantity <= 0);
+    }).length;
+  }, [chart?.tasks]);
 
   const displayRows = useMemo<DisplayRow[]>(() => {
     if (viewMode === "list" || viewMode === "capacity") {
@@ -442,6 +454,18 @@ function ChartEditor() {
                 ))}
               </SelectContent>
             </Select>
+          )}
+
+          {(chart?.tasks ?? []).length > 0 && (
+            <Button
+              variant={noResourcesOnly ? "default" : "outline"}
+              size="sm"
+              className="h-9"
+              onClick={() => setNoResourcesOnly((v) => !v)}
+              title="Show only tasks with no resources allocated"
+            >
+              No resources ({noResourcesCount})
+            </Button>
           )}
 
           {(chart?.tasks ?? []).length > 0 && (
