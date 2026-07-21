@@ -262,13 +262,18 @@ export function exportChartToPdf({ chart, rows, totalWeeks, viewMode, capacity }
         ? "Healthy"
         : capacity.health.band === "at-risk"
           ? "At risk"
-          : "Overloaded";
+          : capacity.health.band === "overloaded"
+            ? "Overloaded"
+            : "No demand";
     const bandRgb: [number, number, number] =
       capacity.health.band === "healthy"
         ? [16, 155, 105]
         : capacity.health.band === "at-risk"
           ? [200, 130, 20]
-          : [200, 50, 60];
+          : capacity.health.band === "overloaded"
+            ? [200, 50, 60]
+            : [120, 120, 120];
+
 
     // Flatten role rows for pagination (team header row + role rows)
     type CapRow =
