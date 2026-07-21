@@ -755,30 +755,44 @@ function ChartEditor() {
                 onClick={async () => {
                   const el = mainViewRef.current;
                   if (!el) return;
-                  const touched: { el: HTMLElement; overflow: string; width: string; height: string; maxHeight: string }[] = [];
+                  const touched: { el: HTMLElement; overflow: string; width: string; height: string; maxHeight: string; minWidth: string; flexShrink: string }[] = [];
                   const expand = (node: HTMLElement) => {
                     const cs = getComputedStyle(node);
                     const scrolls =
                       /(auto|scroll|hidden)/.test(cs.overflowX) ||
                       /(auto|scroll|hidden)/.test(cs.overflowY);
-                    if (scrolls) {
+                    const overflows =
+                      node.scrollWidth > node.clientWidth + 1 ||
+                      node.scrollHeight > node.clientHeight + 1;
+                    if (scrolls || overflows) {
                       touched.push({
                         el: node,
                         overflow: node.style.overflow,
                         width: node.style.width,
                         height: node.style.height,
                         maxHeight: node.style.maxHeight,
+                        minWidth: node.style.minWidth,
+                        flexShrink: node.style.flexShrink,
                       });
                       node.style.overflow = "visible";
                       node.style.width = `${node.scrollWidth}px`;
+                      node.style.minWidth = `${node.scrollWidth}px`;
                       node.style.height = `${node.scrollHeight}px`;
                       node.style.maxHeight = "none";
+                      node.style.flexShrink = "0";
                     }
                   };
+                  // Expand descendants first (deepest last in querySelectorAll),
+                  // reverse so children expand before their parents get remeasured.
+                  const all = Array.from(el.querySelectorAll<HTMLElement>("*")).reverse();
+                  all.forEach(expand);
                   expand(el);
-                  el.querySelectorAll<HTMLElement>("*").forEach(expand);
+                  // Force outer container to full content width
+                  el.style.width = `${el.scrollWidth}px`;
+                  el.style.minWidth = `${el.scrollWidth}px`;
                   try {
                     // Let the browser re-layout with expanded sizes
+                    await new Promise((r) => requestAnimationFrame(() => r(null)));
                     await new Promise((r) => requestAnimationFrame(() => r(null)));
                     const bg =
                       getComputedStyle(document.body).backgroundColor || "#ffffff";
