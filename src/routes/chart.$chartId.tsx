@@ -1108,6 +1108,24 @@ function ChartEditor() {
         }
       />
 
+      <ExportRangeDialog
+        open={exportRequest !== null}
+        format={exportRequest?.format ?? "pdf"}
+        chartStart={chartStart}
+        requiredWeeks={requiredWeeks}
+        defaultWeeks={baseTotalWeeks}
+        onCancel={() => setExportRequest(null)}
+        onConfirm={(weeks) => {
+          const fmt = exportRequest?.format;
+          setExportRequest(null);
+          if (fmt === "pdf") {
+            runPdfExport(weeks);
+          } else if (fmt === "jpg") {
+            void runJpgExport(weeks);
+          }
+        }}
+      />
+
     </div>
   );
 }
