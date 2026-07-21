@@ -1581,7 +1581,8 @@ function TimelineGrid({
   const height = Math.max(rowOffsets.total, 200);
 
   return (
-    <div className="relative" style={{ width, minWidth: "100%" }}>
+    <div className="relative overflow-hidden" data-export-clip="1" style={{ width, minWidth: "100%" }}>
+
       {/* Header */}
       <div
         className="sticky top-0 z-20 border-b border-border bg-background"
