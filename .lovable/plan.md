@@ -1,24 +1,42 @@
-## Export current view as JPG
+## Add export end-date (month/year) for PDF and JPG
 
-Add an "Export JPG" action to the existing Export / Import dropdown in the chart editor toolbar. It captures whichever view is currently active (List, Swimlanes, or Capacity) as a single JPG image and downloads it.
+When the user picks Export PDF or Export JPG (current view) from the Export / Import dropdown, first open a small dialog that lets them cap the exported timeline at a chosen month/year. Applies to both PDF and JPG. JSON and Zoho CSV are unchanged.
+
+### Dialog
+
+- Trigger: clicking "Export PDF" or "Export JPG (current view)" opens `ExportRangeDialog` instead of exporting immediately. The dialog remembers which format was requested.
+- Fields:
+  - Month select (Jan–Dec) and Year select.
+  - "End date" preview line showing the resolved last week (e.g. `Ends week of Mar 30, 2026 · 42 weeks`).
+- Suggested values (populated as quick-pick chips above the selectors):
+  - `Full timeline` (default — current `totalWeeks` behavior)
+  - `Last task ends` — month/year of the final task's end week
+  - `+3 months`, `+6 months`, `+12 months` past the last task end
+  - `End of current year`
+  Each chip sets the month/year selectors. Chips whose date is before the chart start are hidden.
+- Buttons: `Cancel`, `Export`.
 
 ### Behaviour
 
-- New menu item under Export / Import, below Export PDF: `Export JPG (current view)`.
-- Captures the visible chart surface — the header row (weeks/months) plus the task/team pane and timeline — as one image, including horizontally-scrolled content that is off-screen. The full width of the timeline is rendered so nothing is cropped.
-- Filename: `{chartName}-{view}-{yyyy-MM-dd}.jpg` (view = list / swimlanes / capacity).
-- Respects the current filters (search, orphans, no-resources) and view mode, exactly as shown.
-- Also marks the chart as "exported" so the amber unsaved-changes dot on the dropdown clears, matching PDF/JSON exports.
+- The chosen month/year resolves to a week index: last week whose start date is `<= endOfMonth(selected)`. Clamp to a minimum of `requiredWeeks` (never cut off existing tasks) — if the user picks earlier, show an inline warning and disable Export.
+- The resolved `exportWeeks` replaces `totalWeeks` in the export call only; on-screen `totalWeeks` is unchanged.
+- PDF: pass `exportWeeks` into `exportChartToPdf` (already parameterised by `totalWeeks`). Capacity `demandByWeek` arrays are longer than needed — export code already reads `r.used[w] ?? 0` up to `totalWeeks`, so passing the smaller number naturally truncates.
+- JPG: before capture, temporarily set a CSS custom property / inline `width` on the timeline inner tracks to `exportWeeks * weekWidth`, and hide week columns with index `>= exportWeeks` via a data attribute + a scoped style block injected for the capture. Restore in the existing `finally`. Header month cells use the same attribute so trailing months are hidden.
+  - Simpler alternative kept as fallback if hiding proves brittle: temporarily lower `totalWeeks` via a React state used only during export, await two rAFs, capture, then restore. Chosen approach: the state-swap fallback, because the timeline grid is generated from `totalWeeks` in many places and mutating the DOM directly is fragile.
 
-### Technical notes
+### Technical details
 
-- Add `html-to-image` (small, no external deps, works with Tailwind and CSS variables) via `bun add html-to-image`. Use `toJpeg(node, { quality: 0.92, pixelRatio: 2, backgroundColor: <resolved --background> })`.
-- Wrap the capture target with a `ref` in `src/routes/chart.$chartId.tsx`. Each view (list/swimlane grid, capacity heatmap) already lives in a scroll container — the ref goes on the outer element that contains both the fixed left pane and the scrollable timeline.
-- Before capture, temporarily expand the scroll container's inline `width` / `overflow` to force the off-screen timeline into layout so the full width renders; restore after. Do this inside a `try/finally` so the UI recovers on error.
-- Trigger download by creating an `<a href={dataUrl} download={filename}>` and clicking it (same pattern as the existing JSON export).
-- Reuse `markChartExported(chartId)` from the store so the dirty indicator behaves like the other exports.
+- New file `src/components/export-range-dialog.tsx` — shadcn `Dialog` with `Select` (month), `Select` (year), chip row, preview line, warning, action buttons. Props: `open`, `format: "pdf" | "jpg"`, `chartStart: Date`, `requiredWeeks: number`, `defaultWeeks: number`, `weekWidth`, `onConfirm(weeks: number)`, `onCancel()`.
+- In `src/routes/chart.$chartId.tsx`:
+  - Add `exportRequest` state: `null | { format: "pdf" | "jpg" }`.
+  - Replace the current inline `onClick` bodies of the two dropdown items with `setExportRequest({ format: "pdf" | "jpg" })`.
+  - Extract the current PDF and JPG logic into `runPdfExport(weeks: number)` and `runJpgExport(weeks: number)` helpers that use the passed `weeks` in place of `totalWeeks`.
+  - For JPG, introduce `exportOverrideWeeks` state; when set, the render uses `Math.min(totalWeeks, exportOverrideWeeks)` for all timeline loops (header months, list/swimlane rows, capacity heatmap). Wait two rAFs, run capture, then clear the override in `finally`.
+- Week resolution helper in the dialog: `weeksUntil(chartStart, endOfMonth(selected)) = differenceInCalendarWeeks(endOfMonth(selected), chartStart) + 1`, clamped to `[requiredWeeks, 520]`.
+- Suggested-value builder uses `date-fns` (`endOfMonth`, `addMonths`, `endOfYear`) — already a project dependency.
 
 ### Out of scope
 
-- No PNG option, no size/DPI picker, no per-page tiling — one JPG of the current view.
-- No changes to PDF export or capacity scoring.
+- No start-date picker (charts always start at `chart.startDate`).
+- No per-view differences — same dialog for List, Swimlanes, Capacity.
+- JSON and Zoho CSV exports unchanged.
