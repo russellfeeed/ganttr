@@ -190,12 +190,16 @@ export function exportChartToPdf({ chart, rows, totalWeeks, viewMode, capacity }
     }
     // Bar
     const [br, bg, bb] = hexToRgb(task.color);
+    if (task.startWeek >= totalWeeks) return; // fully past export cutoff
     const bx = timelineX + Math.max(0, task.startWeek) * weekW;
-    const bw = Math.max(0.5, task.durationWeeks * weekW);
+    const rawEnd = timelineX + (task.startWeek + task.durationWeeks) * weekW;
+    const maxEnd = timelineX + timelineW;
+    const clippedEnd = Math.min(rawEnd, maxEnd);
+    const bw = Math.max(0.5, clippedEnd - bx);
+    const isTruncated = rawEnd > maxEnd;
     const barH = ROW_H - 2.5;
     const by = y + 1.25;
     if (task.tbc) {
-      // Shaded fill for TBC: lower opacity + dashed outline
       doc.setFillColor(br, bg, bb);
       doc.setGState(new (doc as any).GState({ opacity: 0.3 }));
       doc.roundedRect(bx, by, bw, barH, 1, 1, "F");
@@ -209,6 +213,11 @@ export function exportChartToPdf({ chart, rows, totalWeeks, viewMode, capacity }
     } else {
       doc.setFillColor(br, bg, bb);
       doc.roundedRect(bx, by, bw, barH, 1, 1, "F");
+    }
+    if (isTruncated) {
+      // Draw a small indicator on right edge
+      doc.setFillColor(60, 60, 60);
+      doc.triangle(maxEnd - 1.6, by + 0.4, maxEnd - 0.2, by + barH / 2, maxEnd - 1.6, by + barH - 0.4, "F");
     }
 
     // Bar label if fits
@@ -225,6 +234,7 @@ export function exportChartToPdf({ chart, rows, totalWeeks, viewMode, capacity }
         doc.text(truncate(doc, task.name || "", bw - 2), bx + 1.5, by + barH / 2 + 1.2);
       }
     }
+
   };
 
   // Precompute page slicing
