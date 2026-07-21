@@ -21,7 +21,11 @@ import {
   TriangleAlert,
   BarChart3,
   ChevronDown,
+  Image as ImageIcon,
 } from "lucide-react";
+
+import { toJpeg } from "html-to-image";
+
 
 import { toast } from "sonner";
 import {
