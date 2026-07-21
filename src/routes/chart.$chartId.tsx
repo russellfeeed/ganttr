@@ -170,7 +170,13 @@ function ChartEditor() {
     (max, t) => Math.max(max, t.startWeek + t.durationWeeks),
     0,
   );
-  const totalWeeks = Math.max(MIN_WEEKS, requiredWeeks + 4);
+  const baseTotalWeeks = Math.max(MIN_WEEKS, requiredWeeks + 4);
+  const [exportOverrideWeeks, setExportOverrideWeeks] = useState<number | null>(null);
+  const [exportRequest, setExportRequest] = useState<null | { format: "pdf" | "jpg" }>(null);
+  const totalWeeks =
+    exportOverrideWeeks != null
+      ? Math.min(baseTotalWeeks, Math.max(1, exportOverrideWeeks))
+      : baseTotalWeeks;
 
   const chartStart = useMemo(
     () => new Date((chart?.startDate ?? "1970-01-01") + "T00:00:00"),
