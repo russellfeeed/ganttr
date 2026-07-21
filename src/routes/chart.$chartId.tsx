@@ -385,6 +385,123 @@ function ChartEditor() {
 
   const selectedTask = chart.tasks.find((t) => t.id === selectedTaskId) ?? null;
 
+  const runPdfExport = (weeks: number) => {
+    try {
+      const pdfRows: PdfRow[] = displayRows.map((r) =>
+        r.kind === "header"
+          ? { kind: "header", team: r.team, count: r.count }
+          : { kind: "task", task: r.task },
+      );
+      const teamsWithRoles = teams.filter((t) => (t.roles ?? []).length > 0);
+      const capacity =
+        teamsWithRoles.length > 0
+          ? {
+              teams: teamsWithRoles,
+              demandByWeek,
+              health: computeCapacityHealth(teamsWithRoles, demandByWeek, weeks),
+            }
+          : undefined;
+      exportChartToPdf({
+        chart,
+        rows: pdfRows,
+        totalWeeks: weeks,
+        viewMode: viewMode === "capacity" ? "list" : viewMode,
+        capacity,
+      });
+      toast.success("PDF exported");
+      markChartExported(chart.id);
+    } catch (err) {
+      console.error(err);
+      toast.error("Couldn't export PDF");
+    }
+  };
+
+  const runJpgExport = async (weeks: number) => {
+    setExportOverrideWeeks(weeks);
+    // Wait for render with overridden totalWeeks
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+
+    const el = mainViewRef.current;
+    if (!el) {
+      setExportOverrideWeeks(null);
+      return;
+    }
+    const touched: {
+      el: HTMLElement;
+      overflow: string;
+      width: string;
+      height: string;
+      maxHeight: string;
+      minWidth: string;
+      flexShrink: string;
+    }[] = [];
+    const expand = (node: HTMLElement) => {
+      const cs = getComputedStyle(node);
+      const scrolls =
+        /(auto|scroll|hidden)/.test(cs.overflowX) ||
+        /(auto|scroll|hidden)/.test(cs.overflowY);
+      const overflows =
+        node.scrollWidth > node.clientWidth + 1 ||
+        node.scrollHeight > node.clientHeight + 1;
+      if (scrolls || overflows) {
+        touched.push({
+          el: node,
+          overflow: node.style.overflow,
+          width: node.style.width,
+          height: node.style.height,
+          maxHeight: node.style.maxHeight,
+          minWidth: node.style.minWidth,
+          flexShrink: node.style.flexShrink,
+        });
+        node.style.overflow = "visible";
+        node.style.width = `${node.scrollWidth}px`;
+        node.style.minWidth = `${node.scrollWidth}px`;
+        node.style.height = `${node.scrollHeight}px`;
+        node.style.maxHeight = "none";
+        node.style.flexShrink = "0";
+      }
+    };
+    const all = Array.from(el.querySelectorAll<HTMLElement>("*")).reverse();
+    all.forEach(expand);
+    expand(el);
+    el.style.width = `${el.scrollWidth}px`;
+    el.style.minWidth = `${el.scrollWidth}px`;
+    try {
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      const bg = getComputedStyle(document.body).backgroundColor || "#ffffff";
+      const dataUrl = await toJpeg(el, {
+        quality: 0.92,
+        pixelRatio: 2,
+        backgroundColor: bg,
+        cacheBust: true,
+      });
+      const a = document.createElement("a");
+      const safeName = (chart.name || "chart").replace(/[^\w\-]+/g, "_");
+      a.href = dataUrl;
+      a.download = `${safeName}-${viewMode}-${format(new Date(), "yyyy-MM-dd")}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      toast.success("JPG exported");
+      markChartExported(chart.id);
+    } catch (err) {
+      console.error(err);
+      toast.error("Couldn't export JPG");
+    } finally {
+      for (const t of touched) {
+        t.el.style.overflow = t.overflow;
+        t.el.style.width = t.width;
+        t.el.style.height = t.height;
+        t.el.style.maxHeight = t.maxHeight;
+        t.el.style.minWidth = t.minWidth;
+        t.el.style.flexShrink = t.flexShrink;
+      }
+      setExportOverrideWeeks(null);
+    }
+  };
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       {/* Top bar */}
