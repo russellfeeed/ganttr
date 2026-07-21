@@ -250,7 +250,10 @@ function ChartEditor() {
     }
   }, [selectedTaskId, visibleTasks, listSwimlaneTasks, viewMode]);
 
+  console.log({ orphansOnly, orphanCount: orphanTaskIds.size, listSwimlaneCount: listSwimlaneTasks.length, viewMode });
+
   const displayRows = useMemo<DisplayRow[]>(() => {
+
 
 
     if (viewMode === "list") {
