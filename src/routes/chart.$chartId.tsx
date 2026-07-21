@@ -820,6 +820,8 @@ function ChartEditor() {
                       t.el.style.width = t.width;
                       t.el.style.height = t.height;
                       t.el.style.maxHeight = t.maxHeight;
+                      t.el.style.minWidth = t.minWidth;
+                      t.el.style.flexShrink = t.flexShrink;
                     }
                   }
                 }}
