@@ -1,12 +1,15 @@
-## Fix
+## Goal
+Make it easy to spot tasks that have no resource demands assigned (empty `demands` array, or all demand quantities = 0).
 
-In `CapacityHeatmap` (`src/routes/chart.$chartId.tsx`), split into two columns:
+## Change
+In `src/routes/chart.$chartId.tsx` toolbar, add a new toggle button **"No resources"** next to the existing tag filter / search input.
 
-- **Left**: fixed-width (`NAME_COL = 240`) column with the Team/Role header cell and all team/role name rows. Not horizontally scrollable.
-- **Right**: `overflow-x-auto` container holding the week header and the corresponding week cells for each team/role row. Only this pane scrolls horizontally.
+- When active, `visibleTasks` is filtered to only tasks where `!task.demands || task.demands.every(d => d.quantity <= 0)`.
+- Button shows a count badge of matching tasks (e.g. "No resources (4)") so users see how many exist even when the filter is off — helpful discovery.
+- Uses the existing shadcn `Button` with `variant="outline"` when inactive and `variant="default"` when active, matching the current TBC-style filter affordances in the toolbar.
+- Works in List and Swimlane views (same filter path as search/tag). In Capacity view it has no effect (already aggregates by role).
+- Clearing: clicking the button again toggles it off. Also cleared by the existing "Clear filters" affordance if present; otherwise the toggle itself is sufficient.
 
-Both panes share a single vertical scroll — wrap them in a flex row inside one `overflow-y-auto` container so rows stay aligned. Row heights (`ROW_HEIGHT * 0.7` for team header, `ROW_HEIGHT` for role rows) and `HEADER_HEIGHT` remain identical on both sides to keep alignment.
-
-Header row keeps `sticky top-0` on both panes so the week/date header and Team/Role label stay pinned while scrolling vertically.
-
-No changes to data, other views, or the toolbar.
+## Out of scope
+- No data model changes.
+- No changes to export, PDF, or capacity computations.
