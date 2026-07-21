@@ -7,15 +7,16 @@ export type PdfRow =
   | { kind: "task"; task: Task };
 
 export type PdfCapacityHealth = {
-  score: number;
-  band: "healthy" | "at-risk" | "overloaded";
+  score: number | null;
+  band: "healthy" | "at-risk" | "overloaded" | "none";
   overCells: number;
   atCapCells: number;
   unstaffedCells: number;
-  totalCells: number;
-  allocatedCells: number;
+  activeCells: number;
+  coverage: number | null;
   peak: { over: number; roleName: string; teamName: string; week: number } | null;
 };
+
 
 export type PdfCapacity = {
   teams: Team[];
