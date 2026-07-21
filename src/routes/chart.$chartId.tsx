@@ -109,6 +109,8 @@ function ChartEditor() {
   >(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [noResourcesOnly, setNoResourcesOnly] = useState(false);
+  const [orphansOnly, setOrphansOnly] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = useState<{
     tasks: Task[];
@@ -171,6 +173,32 @@ function ChartEditor() {
   const teams = chart?.teams ?? [];
 
   const normalizedSearch = searchQuery.trim().toLowerCase();
+
+  const allRoleIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const team of teams) {
+      for (const r of team.roles ?? []) set.add(r.id);
+    }
+    return set;
+  }, [teams]);
+
+  const orphanTaskIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const task of chart?.tasks ?? []) {
+      const taskTeam = teams.find((t) => t.id === task.teamId);
+      const validRoleIds = taskTeam
+        ? new Set((taskTeam.roles ?? []).map((r) => r.id))
+        : allRoleIds;
+      for (const d of task.demands ?? []) {
+        if (d.quantity > 0 && !validRoleIds.has(d.roleId)) {
+          set.add(task.id);
+          break;
+        }
+      }
+    }
+    return set;
+  }, [chart?.tasks, teams, allRoleIds]);
+
   const visibleTasks = useMemo(() => {
     const tasks = chart?.tasks ?? [];
     return tasks.filter((t) => {
@@ -194,6 +222,7 @@ function ChartEditor() {
     });
   }, [chart?.tasks, tagFilter, teamFilter, normalizedSearch, noResourcesOnly]);
 
+
   const noResourcesCount = useMemo(() => {
     return (chart?.tasks ?? []).filter((t) => {
       const demands = t.demands ?? [];
@@ -201,21 +230,46 @@ function ChartEditor() {
     }).length;
   }, [chart?.tasks]);
 
+  const listSwimlaneTasks = useMemo(() => {
+    if (!orphansOnly) return visibleTasks;
+    return visibleTasks.filter((t) => orphanTaskIds.has(t.id));
+  }, [visibleTasks, orphansOnly, orphanTaskIds]);
+
+  // Clear task selection when the active filter hides it
+
+  useEffect(() => {
+    const displayed =
+      viewMode === "list" || viewMode === "swimlanes"
+        ? listSwimlaneTasks
+        : visibleTasks;
+    if (
+      selectedTaskId &&
+      !displayed.some((t) => t.id === selectedTaskId)
+    ) {
+      setSelectedTaskId(null);
+    }
+  }, [selectedTaskId, visibleTasks, listSwimlaneTasks, viewMode]);
+
   const displayRows = useMemo<DisplayRow[]>(() => {
-    if (viewMode === "list" || viewMode === "capacity") {
-      const tasks =
-        viewMode === "list"
-          ? [...visibleTasks].sort((a, b) => a.startWeek - b.startWeek || a.name.localeCompare(b.name))
-          : visibleTasks;
+
+
+    if (viewMode === "list") {
+      const tasks = [...listSwimlaneTasks].sort(
+        (a, b) => a.startWeek - b.startWeek || a.name.localeCompare(b.name),
+      );
       return tasks.map((t) => ({ kind: "task", task: t, key: t.id }));
+    }
+    if (viewMode === "capacity") {
+      return visibleTasks.map((t) => ({ kind: "task", task: t, key: t.id }));
     }
     const rows: DisplayRow[] = [];
     const teamIds = new Set(teams.map((t) => t.id));
     const groups: { team: Team | null; tasks: Task[] }[] = teams.map((team) => ({
       team,
-      tasks: visibleTasks.filter((t) => t.teamId === team.id),
+      tasks: listSwimlaneTasks.filter((t) => t.teamId === team.id),
     }));
-    const unassigned = visibleTasks.filter((t) => !t.teamId || !teamIds.has(t.teamId));
+    const unassigned = listSwimlaneTasks.filter((t) => !t.teamId || !teamIds.has(t.teamId));
+
     if (unassigned.length || teams.length === 0) {
       groups.push({ team: null, tasks: unassigned });
     }
@@ -467,6 +521,19 @@ function ChartEditor() {
               No resources ({noResourcesCount})
             </Button>
           )}
+
+          {(chart?.tasks ?? []).length > 0 && (
+            <Button
+              variant={orphansOnly ? "default" : "outline"}
+              size="sm"
+              className="h-9"
+              onClick={() => setOrphansOnly((v) => !v)}
+              title="Show only tasks with orphaned resource demands"
+            >
+              Orphans ({orphanTaskIds.size})
+            </Button>
+          )}
+
 
           {(chart?.tasks ?? []).length > 0 && (
             <Select value={tagFilter} onValueChange={setTagFilter}>
@@ -724,9 +791,10 @@ function ChartEditor() {
             <span>Tasks</span>
             <span className="text-[10px] normal-case tabular-nums">
               {viewMode === "list" || viewMode === "swimlanes" ? (
-                <>total {visibleTasks.length}</>
+                <>total {listSwimlaneTasks.length}</>
               ) : null}
             </span>
+
           </div>
           <div
             ref={leftScrollRef}
@@ -750,9 +818,11 @@ function ChartEditor() {
                       team={teams.find((t) => t.id === row.task.teamId) ?? null}
                       selected={selectedTaskId === row.task.id}
                       overallocated={overallocatedTaskIds.has(row.task.id)}
+                      orphaned={orphanTaskIds.has(row.task.id)}
                       onSelect={() => setSelectedTaskId(row.task.id)}
                       draggable={false}
                     />
+
                   ) : null,
                 )}
               </div>
@@ -781,8 +851,10 @@ function ChartEditor() {
                       team={teams.find((t) => t.id === row.task.teamId) ?? null}
                       selected={selectedTaskId === row.task.id}
                       overallocated={overallocatedTaskIds.has(row.task.id)}
+                      orphaned={orphanTaskIds.has(row.task.id)}
                       onSelect={() => setSelectedTaskId(row.task.id)}
                     />
+
                   ),
                 )}
               </div>
@@ -1185,6 +1257,7 @@ function TaskRowStatic({
   team,
   selected,
   overallocated,
+  orphaned,
   onSelect,
   draggable = true,
 }: {
@@ -1192,6 +1265,7 @@ function TaskRowStatic({
   team: Team | null;
   selected: boolean;
   overallocated?: boolean;
+  orphaned?: boolean;
   onSelect: () => void;
   draggable?: boolean;
 }) {
@@ -1212,7 +1286,7 @@ function TaskRowStatic({
       )}
       title={draggable ? "Drag onto a team lane to assign" : undefined}
     >
-      <TaskRowBody task={task} team={team} overallocated={overallocated} />
+      <TaskRowBody task={task} team={team} overallocated={overallocated} orphaned={orphaned} />
     </div>
   );
 }
@@ -1222,11 +1296,14 @@ function TaskRowBody({
   task,
   team,
   overallocated,
+  orphaned,
 }: {
   task: Task;
   team: Team | null;
   overallocated?: boolean;
+  orphaned?: boolean;
 }) {
+
   return (
     <>
       <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: task.color }} />
@@ -1244,6 +1321,16 @@ function TaskRowBody({
               aria-label="Overallocated"
             />
           )}
+          {orphaned && (
+            <Badge
+              variant="outline"
+              className="h-4 shrink-0 px-1 text-[9px] border-amber-500/50 text-amber-600 dark:text-amber-400"
+              title="Has orphaned resource demands"
+            >
+              Orphan
+            </Badge>
+          )}
+
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>{task.durationWeeks}w</span>

@@ -1,27 +1,36 @@
-## Diagnosis
-The task "Communications Preferences (a la MFRS in VL)" has 3 `demands` entries whose `roleId` values don't match any role in its current team (SDLC). That's why:
+Implement a global "Show only tasks with orphaned resource demands" toolbar toggle.
 
-- The **hover tooltip** shows `1 × Unknown role` three times (the fallback in `chart.$chartId.tsx:1660`).
-- The **Resource demand editor** shows Dev / Snr Dev / TAE all at `0` — it only lists roles from the *current* team, so the orphaned demands are invisible and un-editable.
-- Capacity view silently ignores them (their roleId doesn't map to any team/role row).
+## What we will build
 
-Most likely cause: the task was previously on a different team (or the team's roles were deleted/recreated), leaving stale demand rows referencing dead role IDs.
+1. **State**
+   - Add `orphansOnly: boolean` state alongside the existing `noResourcesOnly` filter in the chart editor.
 
-## Fix (UI only, no data model change)
+2. **Detection logic**
+   - Compute a memoized `Set<string>` of task IDs that have at least one demand whose `roleId` does not match any role in the task's currently assigned team (or any role in the chart if the task has no team).
+   - A task has orphaned demands when `task.demands` contains a quantity > 0 with a `roleId` that no longer exists on the task's team.
 
-In `src/routes/chart.$chartId.tsx`:
+3. **Toolbar toggle**
+   - Add a new toggle button in the chart toolbar next to the existing "No resources" filter.
+   - Label: "Orphans" or similar, with a count badge showing the number of affected tasks.
+   - Active state matches the existing filter styling.
 
-1. **Task details → Resource demand section**: after listing current team roles, compute `orphanDemands = task.demands.filter(d => !currentTeam.roles.some(r => r.id === d.roleId) && d.quantity > 0)` and render each as a warning row:
-   - Label: `Unknown role` + small muted `(orphaned)` hint + the stored quantity.
-   - A `Remove` (trash) button that calls `setTaskDemand(chartId, task.id, d.roleId, 0)` to drop it.
-   - If any orphans exist, show a one-line explanation: *"These demands reference roles that no longer exist on this team. Remove them or reassign the task to the correct team."*
+4. **Filtering**
+   - Extend the `visibleTasks` filtering logic so that when `orphansOnly` is active, only tasks with orphaned demands are shown in List and Swimlane views.
+   - The Capacity heatmap view should not be filtered (it already shows overallocation across all tasks).
+   - If the currently selected task is hidden by the filter, clear the selection so the task editor doesn't reference a missing task.
 
-2. **Tooltip on task bars** (line ~1660): when the role name is missing, render `1 × Unknown role` in a muted/italic style so it's visibly flagged rather than looking like a normal role.
+5. **Visual indicator (optional but helpful)**
+   - In List and Swimlane rows, show a small amber warning indicator on tasks that have orphaned demands, even when the filter is not active, so users can spot them quickly.
 
-3. **Capacity cell dialog** (task rows): apply the same orphan treatment so users can clean them up from there too — reuse the same remove action.
+## Technical details
 
-No changes to store shape, export/import, or capacity math. Existing import sanitization in `gantt-store.ts` already drops unknown-role demands on import; this change lets users clean up orphans created before that guard existed (or by team/role edits).
+- File: `src/routes/chart.$chartId.tsx`
+- Reuse existing filter state patterns from `noResourcesOnly` / `noResourcesCount`.
+- The filter is client-side only; no store or data model changes are required.
+- No route or server changes are needed.
 
 ## Out of scope
-- Auto-deleting orphans on load (destructive; user should choose).
-- Migrating orphans to same-named roles on another team (ambiguous).
+
+- Auto-removing orphans.
+- Adding a dedicated route or dashboard view for orphans.
+- Changing the Capacity view behavior.
