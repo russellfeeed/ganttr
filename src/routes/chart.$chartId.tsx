@@ -362,6 +362,7 @@ function ChartEditor() {
 
   const leftScrollRef = useRef<HTMLDivElement>(null);
   const rightScrollRef = useRef<HTMLDivElement>(null);
+  const mainViewRef = useRef<HTMLDivElement>(null);
   const syncingRef = useRef(false);
 
   if (!chart) {
