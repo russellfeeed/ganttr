@@ -75,7 +75,7 @@ function buildMonthColumns(chartStart: Date, totalWeeks: number): MonthColumn[] 
   return months;
 }
 
-export function exportChartToPdf({ chart, rows, totalWeeks, viewMode }: Opts) {
+export function exportChartToPdf({ chart, rows, totalWeeks, viewMode, capacity }: Opts) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
 
   const timelineX = MARGIN + LEFT_PANEL_W;
