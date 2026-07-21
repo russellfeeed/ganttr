@@ -796,7 +796,7 @@ function ChartEditor() {
       </header>
 
       {/* Main split */}
-      <div className="flex flex-1 overflow-hidden">
+      <div ref={mainViewRef} className="flex flex-1 overflow-hidden">
       {viewMode === "capacity" ? (
         <div className="flex flex-1 overflow-hidden">
           <CapacityHeatmap
