@@ -1655,11 +1655,14 @@ function TaskBar({
             <div className="text-xs pt-1 border-t border-border/60">
               <div className="text-muted-foreground mb-0.5">Resources</div>
               <ul className="space-y-0.5">
-                {demands.map((d) => (
-                  <li key={d.roleId}>
-                    {d.quantity} × {roleNameById.get(d.roleId) ?? "Unknown role"}
-                  </li>
-                ))}
+                {demands.map((d) => {
+                  const name = roleNameById.get(d.roleId);
+                  return (
+                    <li key={d.roleId} className={name ? undefined : "italic text-amber-300"}>
+                      {d.quantity} × {name ?? "Unknown role (orphaned)"}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -1927,6 +1930,45 @@ function TaskEditor({
             )}
           </div>
         )}
+
+        {(() => {
+          const teamRoleIds = new Set((currentTeam?.roles ?? []).map((r) => r.id));
+          const orphans = (task.demands ?? []).filter(
+            (d) => d.quantity > 0 && !teamRoleIds.has(d.roleId),
+          );
+          if (orphans.length === 0) return null;
+          return (
+            <div className="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2">
+              <Label className="text-xs text-amber-700 dark:text-amber-400">
+                Orphaned demands
+              </Label>
+              <p className="text-[11px] text-muted-foreground">
+                These reference roles that no longer exist on this task's team. Remove them, or reassign the task to the correct team.
+              </p>
+              <div className="space-y-1.5">
+                {orphans.map((d) => (
+                  <div key={d.roleId} className="flex items-center gap-2">
+                    <span className="text-xs flex-1 truncate italic text-muted-foreground">
+                      Unknown role
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      qty {d.quantity}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                      onClick={() => onSetDemand(d.roleId, 0)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         <Button variant="destructive" size="sm" className="w-full" onClick={onDelete}>
           <Trash2 className="mr-1.5 h-4 w-4" /> Delete task
