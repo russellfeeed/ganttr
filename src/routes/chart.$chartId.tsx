@@ -643,130 +643,128 @@ function ChartEditor() {
             }}
 
           />
-          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="mr-1 h-4 w-4" /> Import
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const payload = {
-                version: 1,
-                exportedAt: new Date().toISOString(),
-                chart: {
-                  id: chart.id,
-                  name: chart.name,
-                  startDate: chart.startDate,
-                  tasks: chart.tasks.map((t) => ({ ...t, demands: t.demands ?? [] })),
-                  teams: (chart.teams ?? []).map((t) => ({
-                    id: t.id,
-                    name: t.name,
-                    color: t.color,
-                    roles: (t.roles ?? []).map((r) => ({
-                      id: r.id,
-                      name: r.name,
-                      headcount: r.headcount,
-                    })),
-                  })),
-                  createdAt: chart.createdAt,
-                },
-              };
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="mr-1 h-4 w-4" />
+                Export / Import
+                {hasUnexportedChanges && (
+                  <span
+                    aria-label="Unexported changes"
+                    className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500"
+                  />
+                )}
+                <ChevronDown className="ml-1 h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" />
+                Import JSON
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  const payload = {
+                    version: 1,
+                    exportedAt: new Date().toISOString(),
+                    chart: {
+                      id: chart.id,
+                      name: chart.name,
+                      startDate: chart.startDate,
+                      tasks: chart.tasks.map((t) => ({ ...t, demands: t.demands ?? [] })),
+                      teams: (chart.teams ?? []).map((t) => ({
+                        id: t.id,
+                        name: t.name,
+                        color: t.color,
+                        roles: (t.roles ?? []).map((r) => ({
+                          id: r.id,
+                          name: r.name,
+                          headcount: r.headcount,
+                        })),
+                      })),
+                      createdAt: chart.createdAt,
+                    },
+                  };
 
-              const blob = new Blob([JSON.stringify(payload, null, 2)], {
-                type: "application/json",
-              });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              const safe =
-                chart.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "chart";
-              a.href = url;
-              a.download = `${safe}-${format(new Date(), "yyyy-MM-dd")}.json`;
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-              URL.revokeObjectURL(url);
-              toast.success(
-                `Exported ${chart.tasks.length} task${chart.tasks.length === 1 ? "" : "s"}`,
-              );
-              markChartExported(chart.id);
-            }}
-          >
-            <Download className="mr-1 h-4 w-4" /> JSON
-            {hasUnexportedChanges && (
-              <span
-                aria-label="Unexported changes"
-                className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500"
-              />
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              try {
-                const pdfRows: PdfRow[] = displayRows.map((r) =>
-                  r.kind === "header"
-                    ? { kind: "header", team: r.team, count: r.count }
-                    : { kind: "task", task: r.task },
-                );
-                exportChartToPdf({
-                  chart,
-                  rows: pdfRows,
-                  totalWeeks,
-                  viewMode: viewMode === "capacity" ? "list" : viewMode,
-                });
-                toast.success("PDF exported");
-                markChartExported(chart.id);
-              } catch (err) {
-                console.error(err);
-                toast.error("Couldn't export PDF");
-              }
-            }}
-          >
-            <FileDown className="mr-1 h-4 w-4" /> PDF
-            {hasUnexportedChanges && (
-              <span
-                aria-label="Unexported changes"
-                className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500"
-              />
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              try {
-                const { filename, csv, duplicateNames } = exportChartToZohoCsv(chart);
-                const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                URL.revokeObjectURL(url);
-                toast.success(`Exported ${chart.tasks.length} task${chart.tasks.length === 1 ? "" : "s"} for Zoho`);
-                if (duplicateNames.length) {
-                  toast.warning(
-                    `Duplicate task names may break dependencies in Zoho: ${duplicateNames.slice(0, 3).join(", ")}${duplicateNames.length > 3 ? "…" : ""}`,
+                  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                    type: "application/json",
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  const safe =
+                    chart.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "chart";
+                  a.href = url;
+                  a.download = `${safe}-${format(new Date(), "yyyy-MM-dd")}.json`;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(url);
+                  toast.success(
+                    `Exported ${chart.tasks.length} task${chart.tasks.length === 1 ? "" : "s"}`,
                   );
-                }
-                markChartExported(chart.id);
-              } catch (err) {
-                console.error(err);
-                toast.error("Couldn't export Zoho CSV");
-              }
-            }}
-          >
-            <Download className="mr-1 h-4 w-4" /> Zoho
-            {hasUnexportedChanges && (
-              <span
-                aria-label="Unexported changes"
-                className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500"
-              />
-            )}
-          </Button>
+                  markChartExported(chart.id);
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export JSON
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  try {
+                    const pdfRows: PdfRow[] = displayRows.map((r) =>
+                      r.kind === "header"
+                        ? { kind: "header", team: r.team, count: r.count }
+                        : { kind: "task", task: r.task },
+                    );
+                    exportChartToPdf({
+                      chart,
+                      rows: pdfRows,
+                      totalWeeks,
+                      viewMode: viewMode === "capacity" ? "list" : viewMode,
+                    });
+                    toast.success("PDF exported");
+                    markChartExported(chart.id);
+                  } catch (err) {
+                    console.error(err);
+                    toast.error("Couldn't export PDF");
+                  }
+                }}
+              >
+                <FileDown className="mr-2 h-4 w-4" />
+                Export PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  try {
+                    const { filename, csv, duplicateNames } = exportChartToZohoCsv(chart);
+                    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                    toast.success(`Exported ${chart.tasks.length} task${chart.tasks.length === 1 ? "" : "s"} for Zoho`);
+                    if (duplicateNames.length) {
+                      toast.warning(
+                        `Duplicate task names may break dependencies in Zoho: ${duplicateNames.slice(0, 3).join(", ")}${duplicateNames.length > 3 ? "…" : ""}`,
+                      );
+                    }
+                    markChartExported(chart.id);
+                  } catch (err) {
+                    console.error(err);
+                    toast.error("Couldn't export Zoho CSV");
+                  }
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export Zoho CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button
             size="sm"
             onClick={() => {
