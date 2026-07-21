@@ -1238,27 +1238,31 @@ function TaskRowStatic({
   selected,
   overallocated,
   onSelect,
+  draggable = true,
 }: {
   task: Task;
   team: Team | null;
   selected: boolean;
   overallocated?: boolean;
   onSelect: () => void;
+  draggable?: boolean;
 }) {
   return (
     <div
-      draggable
+      draggable={draggable}
       onDragStart={(e) => {
+        if (!draggable) return;
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("application/x-task-id", task.id);
       }}
       onClick={onSelect}
       style={{ height: ROW_HEIGHT }}
       className={cn(
-        "flex items-center gap-2 border-b border-border pl-6 pr-2 cursor-grab active:cursor-grabbing",
+        "flex items-center gap-2 border-b border-border pl-6 pr-2",
+        draggable && "cursor-grab active:cursor-grabbing",
         selected && "bg-accent",
       )}
-      title="Drag onto a team lane to assign"
+      title={draggable ? "Drag onto a team lane to assign" : undefined}
     >
       <TaskRowBody task={task} team={team} overallocated={overallocated} />
     </div>
