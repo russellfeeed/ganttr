@@ -1,36 +1,24 @@
-## Fix capacity health scoring to ignore empty cells
+## Export current view as JPG
 
-**Problem**: The current health score averages penalties across all team/role/week cells, including empty ones (0 penalty). That dilutes the score so a chart full of red overallocated cells can still read 92/100 while coverage sits at 31%.
+Add an "Export JPG" action to the existing Export / Import dropdown in the chart editor toolbar. It captures whichever view is currently active (List, Swimlanes, or Capacity) as a single JPG image and downloads it.
 
-**Change**: Base every health metric only on cells that have demand or unstaffed load. Empty cells contribute to nothing.
+### Behaviour
 
-### Scoring rules (in `computeCapacityHealth`, `src/routes/chart.$chartId.tsx`)
-
-- Define **active cells** = cells where `used > 0` OR `headcount > 0 && demand > 0` (i.e. any cell with real demand, staffed or not). Empty role-weeks are ignored entirely.
-- Score = `100 - (sum of penalties / activeCells)`; if `activeCells === 0`, show "No demand" instead of a number.
-- Penalty weights stay as today (overallocated > unstaffed > at-capacity), but are only averaged over active cells.
-- Health bands unchanged (Healthy / At risk / Overloaded thresholds).
-
-### Coverage redefinition
-
-- Coverage currently = `allocatedCells / totalCells` which is really "demand density", not staffing coverage. Redefine as **staffing coverage**: `staffedDemand / totalDemand` across active cells (sum of `min(used, headcount)` ÷ sum of `used`). This makes it answer "how much of the demand is actually staffable?" and lines up with the score.
-- Rename tooltip copy accordingly: "Share of total role-week demand that assigned teams can staff."
-
-### Stats bar
-
-- Keep Overallocated / At capacity / Unstaffed counts as raw counts (not ratios) — they already only count active cells.
-- Peak overload detail unchanged.
-
-### PDF export
-
-- Mirror the same logic in `src/lib/export-pdf.ts` health header so the printed score matches the UI.
-
-### Out of scope
-
-- No visual redesign of the heatmap or bands.
-- No changes to how demand is entered or how teams/roles work.
+- New menu item under Export / Import, below Export PDF: `Export JPG (current view)`.
+- Captures the visible chart surface — the header row (weeks/months) plus the task/team pane and timeline — as one image, including horizontally-scrolled content that is off-screen. The full width of the timeline is rendered so nothing is cropped.
+- Filename: `{chartName}-{view}-{yyyy-MM-dd}.jpg` (view = list / swimlanes / capacity).
+- Respects the current filters (search, orphans, no-resources) and view mode, exactly as shown.
+- Also marks the chart as "exported" so the amber unsaved-changes dot on the dropdown clears, matching PDF/JSON exports.
 
 ### Technical notes
 
-- `computeCapacityHealth` currently iterates `demandByWeek` cells; switch the denominator from `totalCells` to a running `activeCells` counter and compute coverage from summed used/staffed values in the same pass.
-- Update the `Stat` tooltip strings for Coverage and (optionally) Score to reflect the new definitions.
+- Add `html-to-image` (small, no external deps, works with Tailwind and CSS variables) via `bun add html-to-image`. Use `toJpeg(node, { quality: 0.92, pixelRatio: 2, backgroundColor: <resolved --background> })`.
+- Wrap the capture target with a `ref` in `src/routes/chart.$chartId.tsx`. Each view (list/swimlane grid, capacity heatmap) already lives in a scroll container — the ref goes on the outer element that contains both the fixed left pane and the scrollable timeline.
+- Before capture, temporarily expand the scroll container's inline `width` / `overflow` to force the off-screen timeline into layout so the full width renders; restore after. Do this inside a `try/finally` so the UI recovers on error.
+- Trigger download by creating an `<a href={dataUrl} download={filename}>` and clicking it (same pattern as the existing JSON export).
+- Reuse `markChartExported(chartId)` from the store so the dirty indicator behaves like the other exports.
+
+### Out of scope
+
+- No PNG option, no size/DPI picker, no per-page tiling — one JPG of the current view.
+- No changes to PDF export or capacity scoring.
