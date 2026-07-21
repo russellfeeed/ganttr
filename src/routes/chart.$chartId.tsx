@@ -2339,22 +2339,31 @@ function CapacityHealthBar({
   health: CapacityHealth;
   chartStart: Date;
 }) {
-  const { score, band, overCells, atCapCells, unstaffedCells, allocatedCells, totalCells, peak } =
-    health;
-  const bandLabel = band === "healthy" ? "Healthy" : band === "at-risk" ? "At risk" : "Overloaded";
+  const { score, band, overCells, atCapCells, unstaffedCells, coverage, peak } = health;
+  const bandLabel =
+    band === "healthy"
+      ? "Healthy"
+      : band === "at-risk"
+        ? "At risk"
+        : band === "overloaded"
+          ? "Overloaded"
+          : "No demand";
   const bandClass =
     band === "healthy"
       ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
       : band === "at-risk"
         ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-        : "border-destructive/50 bg-destructive/10 text-destructive";
+        : band === "overloaded"
+          ? "border-destructive/50 bg-destructive/10 text-destructive"
+          : "border-muted bg-muted/30 text-muted-foreground";
   const scoreColor =
     band === "healthy"
       ? "text-emerald-600 dark:text-emerald-400"
       : band === "at-risk"
         ? "text-amber-600 dark:text-amber-400"
-        : "text-destructive";
-  const coverage = totalCells > 0 ? Math.round((allocatedCells / totalCells) * 100) : 0;
+        : band === "overloaded"
+          ? "text-destructive"
+          : "text-muted-foreground";
 
   return (
     <div
@@ -2364,7 +2373,9 @@ function CapacityHealthBar({
       )}
     >
       <div className="flex items-baseline gap-2">
-        <span className={cn("text-2xl font-semibold leading-none", scoreColor)}>{score}</span>
+        <span className={cn("text-2xl font-semibold leading-none", scoreColor)}>
+          {score ?? "—"}
+        </span>
         <span className="text-[10px] uppercase tracking-wide opacity-80">/ 100</span>
         <span className="ml-2 rounded-full border border-current px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">
           {bandLabel}
@@ -2380,10 +2391,11 @@ function CapacityHealthBar({
       />
       <Stat
         label="Coverage"
-        value={`${coverage}%`}
+        value={coverage == null ? "—" : `${coverage}%`}
         tone="muted"
-        tooltip="Percentage of total weekly role demand that is covered by available headcount in the assigned teams."
+        tooltip="Share of total role-week demand that assigned teams can staff (min(used, headcount) ÷ used across cells with demand). Empty role-weeks are excluded."
       />
+
 
       {peak && (
         <div className="text-[11px] opacity-90">
