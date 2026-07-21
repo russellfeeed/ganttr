@@ -7,15 +7,16 @@ export type PdfRow =
   | { kind: "task"; task: Task };
 
 export type PdfCapacityHealth = {
-  score: number;
-  band: "healthy" | "at-risk" | "overloaded";
+  score: number | null;
+  band: "healthy" | "at-risk" | "overloaded" | "none";
   overCells: number;
   atCapCells: number;
   unstaffedCells: number;
-  totalCells: number;
-  allocatedCells: number;
+  activeCells: number;
+  coverage: number | null;
   peak: { over: number; roleName: string; teamName: string; week: number } | null;
 };
+
 
 export type PdfCapacity = {
   teams: Team[];
@@ -261,13 +262,18 @@ export function exportChartToPdf({ chart, rows, totalWeeks, viewMode, capacity }
         ? "Healthy"
         : capacity.health.band === "at-risk"
           ? "At risk"
-          : "Overloaded";
+          : capacity.health.band === "overloaded"
+            ? "Overloaded"
+            : "No demand";
     const bandRgb: [number, number, number] =
       capacity.health.band === "healthy"
         ? [16, 155, 105]
         : capacity.health.band === "at-risk"
           ? [200, 130, 20]
-          : [200, 50, 60];
+          : capacity.health.band === "overloaded"
+            ? [200, 50, 60]
+            : [120, 120, 120];
+
 
     // Flatten role rows for pagination (team header row + role rows)
     type CapRow =
@@ -339,7 +345,7 @@ export function exportChartToPdf({ chart, rows, totalWeeks, viewMode, capacity }
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(bandRgb[0], bandRgb[1], bandRgb[2]);
-      const scoreText = `${capacity.health.score}/100`;
+      const scoreText = `${capacity.health.score ?? "—"}/100`;
       doc.text(scoreText, MARGIN, hy + 4);
       const scoreW = doc.getTextWidth(scoreText);
       doc.setFontSize(8);
@@ -348,12 +354,11 @@ export function exportChartToPdf({ chart, rows, totalWeeks, viewMode, capacity }
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(60, 60, 60);
-      const coverage =
-        capacity.health.totalCells > 0
-          ? Math.round((capacity.health.allocatedCells / capacity.health.totalCells) * 100)
-          : 0;
-      const stats = `Overallocated: ${capacity.health.overCells}   At capacity: ${capacity.health.atCapCells}   Unstaffed: ${capacity.health.unstaffedCells}   Coverage: ${coverage}%`;
+      const coverageStr =
+        capacity.health.coverage == null ? "—" : `${capacity.health.coverage}%`;
+      const stats = `Overallocated: ${capacity.health.overCells}   At capacity: ${capacity.health.atCapCells}   Unstaffed: ${capacity.health.unstaffedCells}   Coverage: ${coverageStr}`;
       doc.text(stats, MARGIN + 45, hy + 4);
+
       if (capacity.health.peak) {
         const pk = capacity.health.peak;
         const peakStr = `Peak: +${pk.over} ${pk.roleName} (${pk.teamName}) wk ${pk.week + 1}`;
