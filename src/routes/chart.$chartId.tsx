@@ -737,29 +737,21 @@ function ChartEditor() {
           >
 
             {viewMode === "list" ? (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={onSortEnd}
-              >
-                <SortableContext
-                  items={displayRows.map((r) => r.key)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {displayRows.map((row) =>
-                    row.kind === "task" ? (
-                      <TaskRow
-                        key={row.key}
-                        task={row.task}
-                        team={teams.find((t) => t.id === row.task.teamId) ?? null}
-                        selected={selectedTaskId === row.task.id}
-                        overallocated={overallocatedTaskIds.has(row.task.id)}
-                        onSelect={() => setSelectedTaskId(row.task.id)}
-                      />
-                    ) : null,
-                  )}
-                </SortableContext>
-              </DndContext>
+              <div>
+                {displayRows.map((row) =>
+                  row.kind === "task" ? (
+                    <TaskRowStatic
+                      key={row.key}
+                      task={row.task}
+                      team={teams.find((t) => t.id === row.task.teamId) ?? null}
+                      selected={selectedTaskId === row.task.id}
+                      overallocated={overallocatedTaskIds.has(row.task.id)}
+                      onSelect={() => setSelectedTaskId(row.task.id)}
+                      draggable={false}
+                    />
+                  ) : null,
+                )}
+              </div>
             ) : (
               <div>
                 {displayRows.map((row) =>
