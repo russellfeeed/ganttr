@@ -2227,18 +2227,45 @@ function CapacityHeatmap({
               />
               {team.name}
             </div>
-            {team.roles.map((role) => (
-              <div
-                key={role.id}
-                className="flex items-center justify-between border-b border-border px-3 text-xs"
-                style={{ height: ROW_HEIGHT }}
-              >
-                <span className="truncate">{role.name}</span>
-                <span className="text-[10px] text-muted-foreground">
-                  cap {role.headcount}
-                </span>
-              </div>
-            ))}
+            {team.roles.map((role) => {
+              const arr = demandByWeek.get(team.id)?.get(role.id);
+              let peak = 0;
+              if (arr) for (const v of arr) if (v > peak) peak = v;
+              const over = peak > role.headcount;
+              const overBy = over ? peak - role.headcount : 0;
+              return (
+                <div
+                  key={role.id}
+                  className={`flex items-center justify-between border-b border-border px-3 text-xs ${
+                    over
+                      ? "bg-destructive/10 border-l-2 border-l-destructive"
+                      : ""
+                  }`}
+                  style={{ height: ROW_HEIGHT }}
+                  title={
+                    over
+                      ? `Peak demand ${peak} exceeds headcount ${role.headcount} (over by ${overBy})`
+                      : undefined
+                  }
+                >
+                  <span className="flex min-w-0 items-center gap-1.5 truncate">
+                    {over && (
+                      <AlertTriangle className="h-3 w-3 shrink-0 text-destructive" />
+                    )}
+                    <span className={`truncate ${over ? "font-medium text-destructive" : ""}`}>
+                      {role.name}
+                    </span>
+                  </span>
+                  <span
+                    className={`text-[10px] ${
+                      over ? "text-destructive font-medium" : "text-muted-foreground"
+                    }`}
+                  >
+                    {over ? `${peak}/${role.headcount}` : `cap ${role.headcount}`}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
