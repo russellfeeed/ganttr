@@ -293,16 +293,6 @@ function ChartEditor() {
 
   const selectedTask = chart.tasks.find((t) => t.id === selectedTaskId) ?? null;
 
-  function onSortEnd(e: DragEndEvent) {
-    const { active, over } = e;
-    if (!over || active.id === over.id) return;
-    const ids = chart.tasks.map((t) => t.id);
-    const oldIdx = ids.indexOf(String(active.id));
-    const newIdx = ids.indexOf(String(over.id));
-    if (oldIdx < 0 || newIdx < 0) return;
-    reorderTasks(chart.id, arrayMove(ids, oldIdx, newIdx));
-  }
-
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       {/* Top bar */}
