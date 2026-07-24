@@ -855,6 +855,24 @@ function ChartEditor() {
               <DropdownMenuItem
                 onClick={() => {
                   try {
+                    exportChartToMarkdown(chart);
+                    toast.success(
+                      `Exported ${chart.tasks.length} task${chart.tasks.length === 1 ? "" : "s"} as Markdown`,
+                    );
+                    markChartExported(chart.id);
+                  } catch (err) {
+                    console.error(err);
+                    toast.error("Couldn't export Markdown");
+                  }
+                }}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Export Markdown
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => {
+                  try {
                     const { filename, csv, duplicateNames } = exportChartToZohoCsv(chart);
                     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
                     const url = URL.createObjectURL(blob);
