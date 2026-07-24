@@ -1,42 +1,64 @@
-## Add export end-date (month/year) for PDF and JPG
+## Add "Export Markdown" option
 
-When the user picks Export PDF or Export JPG (current view) from the Export / Import dropdown, first open a small dialog that lets them cap the exported timeline at a chosen month/year. Applies to both PDF and JPG. JSON and Zoho CSV are unchanged.
+Add a new **Export Markdown** item to the Export / Import dropdown in the chart editor. Produces a `.md` file summarising the chart: metadata, teams/roles, and tasks grouped by team with dates, duration, dependencies, resource demands, and TBC flag. Capacity heatmap is not included (tables would be unreadable at scale); instead a compact per-role peak/capacity summary is emitted.
 
-### Dialog
+### Dropdown
 
-- Trigger: clicking "Export PDF" or "Export JPG (current view)" opens `ExportRangeDialog` instead of exporting immediately. The dialog remembers which format was requested.
-- Fields:
-  - Month select (Jan–Dec) and Year select.
-  - "End date" preview line showing the resolved last week (e.g. `Ends week of Mar 30, 2026 · 42 weeks`).
-- Suggested values (populated as quick-pick chips above the selectors):
-  - `Full timeline` (default — current `totalWeeks` behavior)
-  - `Last task ends` — month/year of the final task's end week
-  - `+3 months`, `+6 months`, `+12 months` past the last task end
-  - `End of current year`
-  Each chip sets the month/year selectors. Chips whose date is before the chart start are hidden.
-- Buttons: `Cancel`, `Export`.
+- New item under existing PDF/JPG entries, before Zoho CSV: **Export Markdown** (icon `FileText` from lucide-react).
+- Unlike PDF/JPG, this does not open `ExportRangeDialog` — markdown has no timeline width to truncate. Exports full chart.
+- Counts toward the "unexported changes" amber dot the same way the other exports do (calls `markExported` on the store).
 
-### Behaviour
+### File contents
 
-- The chosen month/year resolves to a week index: last week whose start date is `<= endOfMonth(selected)`. Clamp to a minimum of `requiredWeeks` (never cut off existing tasks) — if the user picks earlier, show an inline warning and disable Export.
-- The resolved `exportWeeks` replaces `totalWeeks` in the export call only; on-screen `totalWeeks` is unchanged.
-- PDF: pass `exportWeeks` into `exportChartToPdf` (already parameterised by `totalWeeks`). Capacity `demandByWeek` arrays are longer than needed — export code already reads `r.used[w] ?? 0` up to `totalWeeks`, so passing the smaller number naturally truncates.
-- JPG: before capture, temporarily set a CSS custom property / inline `width` on the timeline inner tracks to `exportWeeks * weekWidth`, and hide week columns with index `>= exportWeeks` via a data attribute + a scoped style block injected for the capture. Restore in the existing `finally`. Header month cells use the same attribute so trailing months are hidden.
-  - Simpler alternative kept as fallback if hiding proves brittle: temporarily lower `totalWeeks` via a React state used only during export, await two rAFs, capture, then restore. Chosen approach: the state-swap fallback, because the timeline grid is generated from `totalWeeks` in many places and mutating the DOM directly is fragile.
+```
+# {Chart name}
+
+- Start: {Mon d, yyyy}
+- Total tasks: N
+- Duration: N weeks (Mon d, yyyy → Mon d, yyyy)
+- Exported: {timestamp}
+
+## Teams
+
+### {Team name} (color swatch as hex)
+- Roles: {role name} × {headcount}, ...
+
+(repeat; "Unassigned" section only if any task has no team)
+
+## Tasks
+
+### {Team name}
+| # | Task | Start | End | Weeks | TBC | Depends on | Resources |
+|---|------|-------|-----|-------|-----|------------|-----------|
+| 1 | Name | Jul 6, 2026 | Aug 3, 2026 | 4 | – | Task A, Task B | 2× Engineer, 1× PM |
+
+(one table per team, tasks sorted by startWeek then order)
+
+## Capacity summary
+
+| Team | Role | Headcount | Peak demand | Peak week | Status |
+|------|------|-----------|-------------|-----------|--------|
+| ... | ... | 2 | 3 | Aug 3, 2026 | Overloaded |
+
+(Status: Healthy / At capacity / Overloaded / Unstaffed; only teams with roles)
+```
+
+Dependencies list uses task names. Resources list uses role names looked up from the assigned team (unknown role IDs marked `⚠ orphan`).
 
 ### Technical details
 
-- New file `src/components/export-range-dialog.tsx` — shadcn `Dialog` with `Select` (month), `Select` (year), chip row, preview line, warning, action buttons. Props: `open`, `format: "pdf" | "jpg"`, `chartStart: Date`, `requiredWeeks: number`, `defaultWeeks: number`, `weekWidth`, `onConfirm(weeks: number)`, `onCancel()`.
+- New file `src/lib/export-markdown.ts` exporting `exportChartToMarkdown(chart: Chart)`.
+  - Uses `date-fns` `addWeeks` / `format` (already deps) to compute per-task start/end dates from `chart.startDate + task.startWeek`.
+  - Reuses the same demand-per-week computation shape as capacity (walk tasks, for each week add role qty) to find peak demand per role.
+  - Escapes `|` and newlines in task/team/role names for markdown tables.
+  - Triggers download via a Blob + `<a download>` with filename `${safe(chart.name)}-${yyyy-MM-dd}.md` (matches existing export naming).
 - In `src/routes/chart.$chartId.tsx`:
-  - Add `exportRequest` state: `null | { format: "pdf" | "jpg" }`.
-  - Replace the current inline `onClick` bodies of the two dropdown items with `setExportRequest({ format: "pdf" | "jpg" })`.
-  - Extract the current PDF and JPG logic into `runPdfExport(weeks: number)` and `runJpgExport(weeks: number)` helpers that use the passed `weeks` in place of `totalWeeks`.
-  - For JPG, introduce `exportOverrideWeeks` state; when set, the render uses `Math.min(totalWeeks, exportOverrideWeeks)` for all timeline loops (header months, list/swimlane rows, capacity heatmap). Wait two rAFs, run capture, then clear the override in `finally`.
-- Week resolution helper in the dialog: `weeksUntil(chartStart, endOfMonth(selected)) = differenceInCalendarWeeks(endOfMonth(selected), chartStart) + 1`, clamped to `[requiredWeeks, 520]`.
-- Suggested-value builder uses `date-fns` (`endOfMonth`, `addMonths`, `endOfYear`) — already a project dependency.
+  - Import `exportChartToMarkdown` and `FileText` icon.
+  - Add `DropdownMenuItem` for "Export Markdown" — onClick: `exportChartToMarkdown(chart); markExported(chart.id)`.
+- No changes to store, PDF export, JPG export, or `ExportRangeDialog`.
 
 ### Out of scope
 
-- No start-date picker (charts always start at `chart.startDate`).
-- No per-view differences — same dialog for List, Swimlanes, Capacity.
-- JSON and Zoho CSV exports unchanged.
+- No per-week utilisation tables in markdown (too wide).
+- No range/end-date picker for markdown.
+- Import from markdown is not added — JSON remains the round-trip format.
