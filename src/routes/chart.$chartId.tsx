@@ -22,6 +22,7 @@ import {
   BarChart3,
   ChevronDown,
   Image as ImageIcon,
+  FileText,
 } from "lucide-react";
 
 import { toJpeg } from "html-to-image";
@@ -78,6 +79,7 @@ import {
 import { cn } from "@/lib/utils";
 import { exportChartToPdf, type PdfRow } from "@/lib/export-pdf";
 import { exportChartToZohoCsv } from "@/lib/export-zoho";
+import { exportChartToMarkdown } from "@/lib/export-markdown";
 import { ExportRangeDialog } from "@/components/export-range-dialog";
 
 export const Route = createFileRoute("/chart/$chartId")({
@@ -848,6 +850,24 @@ function ChartEditor() {
               >
                 <ImageIcon className="mr-2 h-4 w-4" />
                 Export JPG (current view)
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => {
+                  try {
+                    exportChartToMarkdown(chart);
+                    toast.success(
+                      `Exported ${chart.tasks.length} task${chart.tasks.length === 1 ? "" : "s"} as Markdown`,
+                    );
+                    markChartExported(chart.id);
+                  } catch (err) {
+                    console.error(err);
+                    toast.error("Couldn't export Markdown");
+                  }
+                }}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Export Markdown
               </DropdownMenuItem>
 
               <DropdownMenuItem
