@@ -22,6 +22,7 @@ import {
   BarChart3,
   ChevronDown,
   Image as ImageIcon,
+  FileText,
 } from "lucide-react";
 
 import { toJpeg } from "html-to-image";
