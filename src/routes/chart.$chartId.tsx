@@ -23,6 +23,7 @@ import {
   ChevronDown,
   Image as ImageIcon,
   FileText,
+  FileCode2,
 } from "lucide-react";
 
 import { toJpeg } from "html-to-image";
