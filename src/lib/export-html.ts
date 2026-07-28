@@ -165,12 +165,14 @@ export function buildChartHtml({ chart, rows, totalWeeks, capacity }: Opts): str
           <span class="tname">${esc(t.name)}</span>
           ${t.tbc ? '<span class="badge">TBC</span>' : ""}
         </div>
-        <div class="barwrap" style="grid-column:${start + 2} / span ${span}">
+        <div class="track" style="grid-column:2 / span ${weeks}">
           <div class="bar${t.tbc ? " tbc" : ""}${clipped ? " clipped" : ""}"
-               style="--bar:${esc(t.color)}" title="${esc(tip)}">
+               style="--bar:${esc(t.color)}; left:calc(var(--w) * ${start}); width:calc(var(--w) * ${span});"
+               title="${esc(tip)}">
             <span>${esc(t.name)}</span>${dep ? `<em class="dep">after: ${esc(dep.name)}</em>` : ""}
           </div>
         </div>
+
       </div>`;
     })
     .join("");
