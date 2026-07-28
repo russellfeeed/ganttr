@@ -23,7 +23,7 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-export type ExportFormat = "pdf" | "jpg";
+export type ExportFormat = "pdf" | "jpg" | "html";
 
 type Props = {
   open: boolean;
