@@ -1183,6 +1183,8 @@ function ChartEditor() {
             runPdfExport(weeks);
           } else if (fmt === "jpg") {
             void runJpgExport(weeks);
+          } else if (fmt === "html") {
+            runHtmlExport(weeks);
           }
         }}
       />
