@@ -109,7 +109,7 @@ export function ExportRangeDialog({
     <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Export {fmt === "pdf" ? "PDF" : "JPG"}</DialogTitle>
+          <DialogTitle>Export {fmt === "pdf" ? "PDF" : fmt === "jpg" ? "JPG" : "interactive HTML"}</DialogTitle>
           <DialogDescription>
             Choose the end date for the exported timeline.
           </DialogDescription>
