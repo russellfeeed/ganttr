@@ -902,6 +902,13 @@ function ChartEditor() {
                 Export Markdown
               </DropdownMenuItem>
 
+              <DropdownMenuItem onClick={() => setExportRequest({ format: "html" })}>
+                <FileCode2 className="mr-2 h-4 w-4" />
+                Export interactive HTML
+              </DropdownMenuItem>
+
+
+
               <DropdownMenuItem
                 onClick={() => {
                   try {
