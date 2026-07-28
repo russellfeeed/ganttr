@@ -420,6 +420,36 @@ function ChartEditor() {
     }
   };
 
+  const runHtmlExport = (weeks: number) => {
+    try {
+      const htmlRows: HtmlRow[] = displayRows.map((r) =>
+        r.kind === "header"
+          ? { kind: "header", team: r.team, count: r.count }
+          : { kind: "task", task: r.task },
+      );
+      const teamsWithRoles = teams.filter((t) => (t.roles ?? []).length > 0);
+      exportChartToHtml({
+        chart,
+        rows: htmlRows,
+        totalWeeks: weeks,
+        capacity:
+          teamsWithRoles.length > 0
+            ? {
+                teams: teamsWithRoles,
+                demandByWeek,
+                health: computeCapacityHealth(teamsWithRoles, demandByWeek, weeks),
+              }
+            : undefined,
+      });
+      toast.success("Interactive HTML exported");
+      markChartExported(chart.id);
+    } catch (err) {
+      console.error(err);
+      toast.error("Couldn't export HTML");
+    }
+  };
+
+
   const runJpgExport = async (weeks: number) => {
     setExportOverrideWeeks(weeks);
     // Wait for render with overridden totalWeeks
