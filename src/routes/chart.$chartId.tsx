@@ -177,7 +177,7 @@ function ChartEditor() {
   );
   const baseTotalWeeks = Math.max(MIN_WEEKS, requiredWeeks + 4);
   const [exportOverrideWeeks, setExportOverrideWeeks] = useState<number | null>(null);
-  const [exportRequest, setExportRequest] = useState<null | { format: "pdf" | "jpg" }>(null);
+  const [exportRequest, setExportRequest] = useState<null | { format: "pdf" | "jpg" | "html" }>(null);
   const totalWeeks =
     exportOverrideWeeks != null ? Math.max(1, exportOverrideWeeks) : baseTotalWeeks;
 
