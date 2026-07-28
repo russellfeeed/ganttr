@@ -340,21 +340,28 @@ export function buildChartHtml({ chart, rows, totalWeeks, capacity }: Opts): str
   .wcell { color: var(--muted); }
 
   .row > .fill { height: var(--row); background: var(--soft); border-bottom: 1px solid var(--line); }
-  .barwrap {
-    height: var(--row); display: flex; align-items: center; padding: 3px 2px;
-    border-bottom: 1px solid var(--line); min-width: 0;
+  .track {
+    position: relative; height: var(--row); border-bottom: 1px solid var(--line);
+    background: repeating-linear-gradient(to right, transparent 0, transparent calc(var(--w) - 1px), var(--line) calc(var(--w) - 1px), var(--line) var(--w));
   }
-  .row:not(.grow) .barwrap { background:
-    repeating-linear-gradient(to right, transparent 0, transparent calc(var(--w) - 1px), var(--line) calc(var(--w) - 1px), var(--line) var(--w)); }
   .bar {
-    background: var(--bar); color: #fff; border-radius: 5px; height: 100%;
-    display: flex; align-items: center; gap: 6px; padding: 0 8px; min-width: 0;
-    width: 100%; font-size: 12px; overflow: hidden; white-space: nowrap;
+    position: absolute; top: 3px; bottom: 3px;
+    background: var(--bar); color: #fff; border-radius: 5px;
+    display: flex; align-items: center; gap: 6px; padding: 0 8px;
+    font-size: 12px; overflow: hidden; white-space: nowrap;
   }
   .bar span { overflow: hidden; text-overflow: ellipsis; }
-  .bar em.dep { font-style: normal; font-size: 10px; opacity: .8; margin-left: auto; }
-  .bar.tbc { background: repeating-linear-gradient(45deg, var(--bar), var(--bar) 6px, rgba(255,255,255,.35) 6px, rgba(255,255,255,.35) 12px); }
-  .bar.clipped { border-radius: 5px 0 0 5px; box-shadow: inset -4px 0 0 rgba(15,23,42,.55); }
+  .bar em.dep { font-style: normal; font-size: 10px; opacity: .85; margin-left: auto; flex: 0 0 auto; }
+  .bar.tbc {
+    background: repeating-linear-gradient(45deg, var(--bar), var(--bar) 7px, rgba(255,255,255,.45) 7px, rgba(255,255,255,.45) 14px);
+    color: #0f172a;
+  }
+  .bar.tbc span, .bar.tbc em.dep {
+    background: rgba(255,255,255,.92); border-radius: 3px; padding: 0 5px;
+  }
+  .bar.clipped { border-radius: 5px 0 0 5px; box-shadow: inset -5px 0 0 rgba(15,23,42,.6); }
+
+
 
   .ccell {
     height: var(--row); display: flex; align-items: center; justify-content: center;
