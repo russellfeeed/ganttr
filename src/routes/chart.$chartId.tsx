@@ -23,6 +23,7 @@ import {
   ChevronDown,
   Image as ImageIcon,
   FileText,
+  FileCode2,
 } from "lucide-react";
 
 import { toJpeg } from "html-to-image";
@@ -80,6 +81,7 @@ import { cn } from "@/lib/utils";
 import { exportChartToPdf, type PdfRow } from "@/lib/export-pdf";
 import { exportChartToZohoCsv } from "@/lib/export-zoho";
 import { exportChartToMarkdown } from "@/lib/export-markdown";
+import { exportChartToHtml, type HtmlRow } from "@/lib/export-html";
 import { ExportRangeDialog } from "@/components/export-range-dialog";
 
 export const Route = createFileRoute("/chart/$chartId")({
@@ -175,7 +177,7 @@ function ChartEditor() {
   );
   const baseTotalWeeks = Math.max(MIN_WEEKS, requiredWeeks + 4);
   const [exportOverrideWeeks, setExportOverrideWeeks] = useState<number | null>(null);
-  const [exportRequest, setExportRequest] = useState<null | { format: "pdf" | "jpg" }>(null);
+  const [exportRequest, setExportRequest] = useState<null | { format: "pdf" | "jpg" | "html" }>(null);
   const totalWeeks =
     exportOverrideWeeks != null ? Math.max(1, exportOverrideWeeks) : baseTotalWeeks;
 
@@ -417,6 +419,36 @@ function ChartEditor() {
       toast.error("Couldn't export PDF");
     }
   };
+
+  const runHtmlExport = (weeks: number) => {
+    try {
+      const htmlRows: HtmlRow[] = displayRows.map((r) =>
+        r.kind === "header"
+          ? { kind: "header", team: r.team, count: r.count }
+          : { kind: "task", task: r.task },
+      );
+      const teamsWithRoles = teams.filter((t) => (t.roles ?? []).length > 0);
+      exportChartToHtml({
+        chart,
+        rows: htmlRows,
+        totalWeeks: weeks,
+        capacity:
+          teamsWithRoles.length > 0
+            ? {
+                teams: teamsWithRoles,
+                demandByWeek,
+                health: computeCapacityHealth(teamsWithRoles, demandByWeek, weeks),
+              }
+            : undefined,
+      });
+      toast.success("Interactive HTML exported");
+      markChartExported(chart.id);
+    } catch (err) {
+      console.error(err);
+      toast.error("Couldn't export HTML");
+    }
+  };
+
 
   const runJpgExport = async (weeks: number) => {
     setExportOverrideWeeks(weeks);
@@ -870,6 +902,13 @@ function ChartEditor() {
                 Export Markdown
               </DropdownMenuItem>
 
+              <DropdownMenuItem onClick={() => setExportRequest({ format: "html" })}>
+                <FileCode2 className="mr-2 h-4 w-4" />
+                Export interactive HTML
+              </DropdownMenuItem>
+
+
+
               <DropdownMenuItem
                 onClick={() => {
                   try {
@@ -1144,6 +1183,8 @@ function ChartEditor() {
             runPdfExport(weeks);
           } else if (fmt === "jpg") {
             void runJpgExport(weeks);
+          } else if (fmt === "html") {
+            runHtmlExport(weeks);
           }
         }}
       />
