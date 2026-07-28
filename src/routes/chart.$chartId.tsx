@@ -80,6 +80,7 @@ import { cn } from "@/lib/utils";
 import { exportChartToPdf, type PdfRow } from "@/lib/export-pdf";
 import { exportChartToZohoCsv } from "@/lib/export-zoho";
 import { exportChartToMarkdown } from "@/lib/export-markdown";
+import { exportChartToHtml, type HtmlRow } from "@/lib/export-html";
 import { ExportRangeDialog } from "@/components/export-range-dialog";
 
 export const Route = createFileRoute("/chart/$chartId")({
