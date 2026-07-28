@@ -1383,6 +1383,7 @@ function LaneHeader({
   onDropTask: (taskId: string) => void;
 }) {
   const [over, setOver] = useState(false);
+  const roles = team?.roles ?? [];
   return (
     <div
       onDragOver={(e) => {
@@ -1409,7 +1410,38 @@ function LaneHeader({
         className="h-2.5 w-2.5 rounded-sm"
         style={{ backgroundColor: team?.color ?? "hsl(var(--muted-foreground))" }}
       />
-      <span className="text-xs font-medium">{team?.name ?? "Unassigned"}</span>
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="text-xs font-medium cursor-help border-b border-dashed border-border">
+              {team?.name ?? "Unassigned"}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="right" align="start" className="max-w-xs">
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold">
+                {team ? `${team.name} resources` : "Unassigned lane"}
+              </p>
+              {team ? (
+                roles.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">No roles defined.</p>
+                ) : (
+                  <ul className="space-y-0.5">
+                    {roles.map((r) => (
+                      <li key={r.id} className="flex items-center justify-between gap-4 text-[11px]">
+                        <span className="truncate">{r.name}</span>
+                        <span className="shrink-0 tabular-nums text-muted-foreground">{r.headcount}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )
+              ) : (
+                <p className="text-[11px] text-muted-foreground">Tasks without a team assignment.</p>
+              )}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <span className="ml-auto text-[10px] text-muted-foreground">
         {count} task{count === 1 ? "" : "s"}
       </span>
