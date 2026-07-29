@@ -1,11 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { format } from "date-fns";
-import { Plus, Trash2, Copy, Pencil, LayoutGrid, Download, Upload } from "lucide-react";
+import { Plus, Trash2, Copy, Pencil, LayoutGrid, Download, Upload, GitCompare, X } from "lucide-react";
 import { toast } from "sonner";
 import { useGanttStore } from "@/lib/gantt-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,8 +53,17 @@ function Index() {
   const [pendingImport, setPendingImport] = useState<
     { charts: Record<string, any>; order: string[] } | null
   >(null);
+  const [selected, setSelected] = useState<string[]>([]);
 
   const list = order.map((id) => charts[id]).filter(Boolean);
+  const selectedCharts = selected.map((id) => charts[id]).filter(Boolean);
+
+  const toggleSelected = (id: string, checked: boolean) => {
+    setSelected((prev) => {
+      if (checked) return prev.includes(id) || prev.length >= 2 ? prev : [...prev, id];
+      return prev.filter((x) => x !== id);
+    });
+  };
 
   const handleImportFile = async (file: File) => {
     try {
@@ -166,8 +177,33 @@ function Index() {
             {list.map((chart) => (
               <div
                 key={chart.id}
-                className="group flex flex-col rounded-lg border border-border bg-card p-5 transition-colors hover:border-primary/40"
+                className={`group relative flex flex-col rounded-lg border bg-card p-5 pr-12 transition-colors ${
+                  selected.includes(chart.id)
+                    ? "border-primary ring-1 ring-primary/30"
+                    : "border-border hover:border-primary/40"
+                }`}
               >
+                <div className="absolute right-4 top-4">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex">
+                          <Checkbox
+                            aria-label={`Select ${chart.name} for comparison`}
+                            checked={selected.includes(chart.id)}
+                            disabled={!selected.includes(chart.id) && selected.length >= 2}
+                            onCheckedChange={(v) => toggleSelected(chart.id, v === true)}
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {!selected.includes(chart.id) && selected.length >= 2
+                          ? "Only two charts can be compared"
+                          : "Select to compare"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 {editingId === chart.id ? (
                   <form
                     onSubmit={(e) => {
@@ -241,6 +277,36 @@ function Index() {
           </div>
         )}
       </main>
+
+      {selected.length > 0 ? (
+        <div className="sticky bottom-0 z-20 border-t border-border bg-background/95 backdrop-blur">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-3">
+            <p className="text-sm text-muted-foreground">
+              {selectedCharts.map((c, i) => (
+                <span key={c.id}>
+                  {i > 0 ? " vs " : ""}
+                  <span className="font-medium text-foreground">{c.name}</span>
+                </span>
+              ))}
+              {selected.length === 1 ? " — pick one more chart to compare" : ""}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setSelected([])}>
+                <X className="mr-1.5 h-4 w-4" /> Clear
+              </Button>
+              <Button
+                size="sm"
+                disabled={selected.length !== 2}
+                onClick={() =>
+                  navigate({ to: "/compare", search: { a: selected[0], b: selected[1] } })
+                }
+              >
+                <GitCompare className="mr-1.5 h-4 w-4" /> Compare
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <AlertDialog
         open={pendingImport !== null}
