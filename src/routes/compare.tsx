@@ -757,7 +757,6 @@ function ComparePage() {
               Copy
             </AlertDialogAction>
           </AlertDialogFooter>
-        </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
