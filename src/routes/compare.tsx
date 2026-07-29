@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { format, parseISO } from "date-fns";
 import { ArrowLeft, GitCompare } from "lucide-react";
@@ -252,8 +253,8 @@ function ComparePage() {
             </thead>
             <tbody className="divide-y divide-border">
               {cmp.teams.rows.map((team) => (
-                <>
-                  <tr key={team.name} className="bg-muted/40">
+                <Fragment key={team.name}>
+                  <tr className="bg-muted/40">
                     <td className={`${td} font-medium`}>
                       {team.name}
                       {team.status !== "both" ? (
@@ -283,7 +284,7 @@ function ComparePage() {
                       <td className={td}>{numFmt(r.bDemand)}</td>
                     </tr>
                   ))}
-                </>
+                </Fragment>
               ))}
               <tr className="border-t-2 border-border font-medium">
                 <td className={td}>Total</td>
