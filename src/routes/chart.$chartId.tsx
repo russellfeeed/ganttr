@@ -2604,6 +2604,96 @@ function computeCapacityHealth(
 }
 
 
+function CapacityResourceSummary({ teams }: { teams: Team[] }) {
+  const roles = teams.flatMap((t) => t.roles ?? []);
+  const totalHeadcount = roles.reduce((sum, r) => sum + (r.headcount ?? 0), 0);
+  const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+
+  const byRoleName = new Map<string, number>();
+  for (const r of roles) {
+    const key = r.name.trim() || "Unnamed role";
+    byRoleName.set(key, (byRoleName.get(key) ?? 0) + (r.headcount ?? 0));
+  }
+  const roleTotals = [...byRoleName.entries()].sort((a, b) => b[1] - a[1]);
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-muted/20 px-4 py-2 text-xs">
+      <span className="font-medium uppercase tracking-wide text-muted-foreground">
+        Available resources
+      </span>
+      <span className="text-muted-foreground">
+        <span className="font-semibold tabular-nums text-foreground">{fmt(totalHeadcount)}</span>{" "}
+        people
+      </span>
+      <span className="text-muted-foreground">
+        <span className="font-semibold tabular-nums text-foreground">{teams.length}</span> teams
+      </span>
+      <span className="text-muted-foreground">
+        <span className="font-semibold tabular-nums text-foreground">{roles.length}</span> roles
+      </span>
+
+      <TooltipProvider delayDuration={300}>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {teams.map((team) => {
+            const teamHeadcount = (team.roles ?? []).reduce(
+              (sum, r) => sum + (r.headcount ?? 0),
+              0,
+            );
+            return (
+              <Tooltip key={team.id}>
+                <TooltipTrigger asChild>
+                  <span className="flex cursor-help items-center gap-1.5 rounded-full border border-border bg-background px-2 py-0.5">
+                    <span
+                      className="h-2 w-2 rounded-sm"
+                      style={{ backgroundColor: team.color }}
+                    />
+                    <span className="max-w-[10rem] truncate">{team.name}</span>
+                    <span className="font-semibold tabular-nums">{fmt(teamHeadcount)}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="mb-1 font-medium">{team.name}</p>
+                  <ul className="space-y-0.5">
+                    {(team.roles ?? []).map((r) => (
+                      <li key={r.id} className="flex justify-between gap-4">
+                        <span>{r.name}</span>
+                        <span className="tabular-nums">{fmt(r.headcount ?? 0)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+      </TooltipProvider>
+
+      {roleTotals.length > 0 && (
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-help text-muted-foreground underline decoration-dashed underline-offset-4">
+                By role
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs">
+              <p className="mb-1 font-medium">Headcount by role (all teams)</p>
+              <ul className="space-y-0.5">
+                {roleTotals.map(([name, count]) => (
+                  <li key={name} className="flex justify-between gap-4">
+                    <span>{name}</span>
+                    <span className="tabular-nums">{fmt(count)}</span>
+                  </li>
+                ))}
+              </ul>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+    </div>
+  );
+}
+
 function CapacityHealthBar({
   health,
   chartStart,
