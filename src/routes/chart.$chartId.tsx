@@ -2354,6 +2354,7 @@ function CapacityHeatmap({
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <CapacityHealthBar health={health} chartStart={chartStart} />
+      <CapacityResourceSummary teams={teamsWithRoles} />
       <div className="flex flex-1 overflow-y-auto">
 
       {/* Fixed left column: team/role names */}
