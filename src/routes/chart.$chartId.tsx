@@ -2643,15 +2643,30 @@ function CapacityHealthBar({
         bandClass,
       )}
     >
-      <div className="flex items-baseline gap-2">
-        <span className={cn("text-2xl font-semibold leading-none", scoreColor)}>
-          {score ?? "—"}
-        </span>
-        <span className="text-[10px] uppercase tracking-wide opacity-80">/ 100</span>
-        <span className="ml-2 rounded-full border border-current px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">
-          {bandLabel}
-        </span>
-      </div>
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-baseline gap-2 cursor-help">
+              <span className={cn("text-2xl font-semibold leading-none", scoreColor)}>
+                {score ?? "—"}
+              </span>
+              <span className="text-[10px] uppercase tracking-wide opacity-80">/ 100</span>
+              <span className="ml-2 rounded-full border border-current px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide">
+                {bandLabel}
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-xs">
+            <p className="font-medium mb-1">Health score calculation</p>
+            <p className="text-muted-foreground">
+              The score is the average penalty across every role-week cell that has demand
+              (empty cells are ignored). Penalties: unstaffed demand = 100; overallocated =
+              30–100 depending on severity; exactly at capacity = 10; above 85% = 5; below 85%
+              = 0. Score = 100 − average penalty, clamped to 0–100.
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <Stat label="Overallocated" value={overCells} tone={overCells > 0 ? "bad" : "muted"} />
       <Stat label="At capacity" value={atCapCells} tone={atCapCells > 0 ? "warn" : "muted"} />
       <Stat
