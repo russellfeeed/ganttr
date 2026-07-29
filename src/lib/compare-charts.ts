@@ -7,6 +7,23 @@ function norm(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+/** Normalised match key used to pair tasks, teams, roles and tags across charts. */
+export function matchKey(s: string): string {
+  return norm(s);
+}
+
+/**
+ * Translate a week index from one chart's calendar into another's, so the
+ * copied task keeps the same absolute calendar start date.
+ */
+export function alignedStartWeek(from: Chart, to: Chart, week: number): number {
+  const weekMs = 7 * 24 * 3600 * 1000;
+  const offset = Math.round(
+    (parseISO(from.startDate).getTime() - parseISO(to.startDate).getTime()) / weekMs,
+  );
+  return week + offset;
+}
+
 export function taskEndWeek(t: Task): number {
   return t.startWeek + Math.max(1, t.durationWeeks);
 }

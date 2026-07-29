@@ -1,41 +1,29 @@
 ## Goal
-Let you tick two chart cards on the dashboard and open a comparison view showing how the two roadmaps differ in timing, team/resource needs, tags and dependencies.
+On `/compare`, each row gets two small copy buttons (`→` copy A to B, `←` copy B to A) that push that one row's values into the other chart, after a confirmation dialog.
 
-## 1. Dashboard selection (`src/routes/index.tsx`)
-- Add a checkbox in the top-right of each chart card (always visible; clicking it does not open the chart).
-- Keep selected ids in local state, capped at 2. When 2 are ticked, the remaining checkboxes are disabled with a tooltip "Only two charts can be compared".
-- A sticky action bar appears once 1+ is ticked: shows the selected chart names, a **Clear** button, and a **Compare** button enabled only at exactly 2.
-- Compare navigates to `/compare?a=<id>&b=<id>`.
+## UI (`src/routes/compare.tsx`)
+- Add a trailing **Copy** column to the Tasks, Teams & resources, Tags and Dependencies tables.
+- Each cell holds two icon buttons (`ArrowRight` / `ArrowLeft`, ghost, size sm) with tooltips "Copy A → B" / "Copy B → A". Buttons are disabled (with a reason tooltip) when the copy is impossible or a no-op — e.g. source side has no value, or the row is already identical.
+- Clicking opens a single shared `AlertDialog` describing exactly what will change, e.g.
+  "Copy **Design review** timing from *R&D Roadmap* to *Roadmap v2*: start 3 Mar 2026 → 10 Mar 2026, duration 4w → 6w. This overwrites the task in Roadmap v2." with **Cancel** / **Copy**.
+- On confirm, apply via the store and show a sonner toast ("Copied to Roadmap v2"). Recomputed diff re-renders automatically since the page reads from the store.
 
-## 2. Comparison route (`src/routes/compare.tsx`)
-Reads both charts from the store by search params; if either is missing, shows an empty state with a link back. Own `head()` metadata.
+## What each row copies
+**Tasks — timing only.** Copies start and duration, calendar-aligned: the target `startWeek` is recomputed from the source task's absolute calendar start against the target chart's own `startDate` (reusing the `absWeek` maths already in `compare-charts.ts`). Only `startWeek` and `durationWeeks` are written — name, team, tags, colour, demands and dependency are untouched.
+- Matched rows: overwrite the other side's timing.
+- "Only A" / "Only B" rows: the copy button creates the task on the other chart (name + timing only) via `addTask`; the reverse direction is disabled.
+- If the calendar start lands before the target chart's start date, week 0 is used and the dialog notes the clamp.
 
-Layout: header with both chart names (colour-coded A/B) and a back link, then sections:
+**Teams & resources.** Copy button on each role row copies headcount to the other chart; on the team header row it copies headcount for all roles in that team. Missing team/role on the target is created (`addTeam` / `addRole`) so the copy always lands. Demand columns are read-only (demand derives from tasks).
 
-**Timeline overview**
-- Each chart's absolute start date, end date (start + last task end) and total duration in weeks.
-- Deltas: how many weeks later/earlier B starts and ends versus A.
+**Tags.** Copies tag membership: for tasks matched by name, the tag is added to / removed from the target task so the target's tag usage mirrors the source. Tasks that exist on only one side are skipped and the dialog says how many tasks will change.
 
-**Task comparison** — tasks matched by normalised name (case/whitespace-insensitive):
-| Task | A start–end | B start–end | Shift |
-Three groups: *In both* (with start/end shift in weeks, highlighted when non-zero), *Only in A*, *Only in B*. Dates shown as real calendar dates derived from each chart's own `startDate`, so charts starting on different Mondays compare correctly.
+**Dependencies.** Copies the `dependsOn` link for that task: resolves the source predecessor by name in the target chart and sets it; clears the link when the source has none. Disabled with an explanatory tooltip when the predecessor task doesn't exist in the target chart.
 
-**Teams & resources**
-- Per team (matched by name): headcount per role in A vs B and the difference.
-- Totals row: total headcount, total role-weeks of demand, and peak demand per chart.
-- Roles/teams present in only one chart are flagged.
-
-**Tags**
-- Union of all tags, with task counts per chart and a delta column; tags unique to one chart flagged.
-
-**Dependencies**
-- Per matched task, its predecessor name in A vs B; rows differ-highlighted when the dependency was added, removed or changed.
-- Counts of total dependency links per chart.
-
-## 3. Comparison logic (`src/lib/compare-charts.ts`)
-Pure helper `compareCharts(a, b)` returning the structured diff (timeline, tasks, teams/roles, tags, dependencies) used by the route. Keeps the route presentational and makes the maths testable.
+## Logic (`src/lib/compare-charts.ts`)
+Export the existing `absWeek` helper plus a small `alignedStartWeek(from, to, startWeek)` so the route can translate week indices between charts. No changes to the diff shape itself.
 
 ## Notes
-- Read-only: no store changes, no schema changes, nothing persisted beyond existing chart data.
-- Weeks→dates use each chart's own `startDate` so comparisons are calendar-accurate.
-- Task matching is by name; unmatched tasks are listed separately rather than force-paired.
+- All writes go through existing store actions (`updateTask`, `addTask`, `addTeam`, `addRole`, `setRoleHeadcount`), so persistence, undo-free localStorage saving and the chart editor stay consistent.
+- Cascade is not applied — copying a row moves only that task, never its successors.
+- No schema or backend changes.
