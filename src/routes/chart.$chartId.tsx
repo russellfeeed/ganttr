@@ -622,7 +622,7 @@ function ChartEditor() {
               className="h-7 px-2"
               onClick={() => setViewMode("swimlanes")}
             >
-              <Rows3 className="mr-1 h-3.5 w-3.5" /> Swimlanes
+              <Rows3 className="mr-1 h-3.5 w-3.5" /> By Team
             </Button>
             <Button
               variant={viewMode === "capacity" ? "secondary" : "ghost"}
