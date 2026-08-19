@@ -2356,12 +2356,15 @@ function CapacityHeatmap({
     <div className="flex flex-1 flex-col overflow-hidden">
       <CapacityHealthBar health={health} chartStart={chartStart} />
       <CapacityResourceSummary teams={teamsWithRoles} />
-      <div className="flex flex-1 overflow-y-auto">
+      <div className="flex flex-1 overflow-auto">
 
-      {/* Fixed left column: team/role names */}
-      <div className="shrink-0 border-r border-border bg-background" style={{ width: NAME_COL }}>
+      {/* Sticky left column: team/role names */}
+      <div
+        className="sticky left-0 z-20 shrink-0 border-r border-border bg-background"
+        style={{ width: NAME_COL }}
+      >
         <div
-          className="sticky top-0 z-20 border-b border-border bg-background px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+          className="sticky top-0 z-30 border-b border-border bg-background px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground"
           style={{ height: HEADER_HEIGHT }}
         >
           Team / Role
@@ -2421,8 +2424,8 @@ function CapacityHeatmap({
         ))}
       </div>
 
-      {/* Scrollable right pane: timeline */}
-      <div className="flex-1 overflow-x-auto">
+      {/* Timeline pane (scrolls with the shared container) */}
+      <div className="shrink-0" style={{ width: timelineWidth }}>
         <div style={{ width: timelineWidth }}>
           <div
             className="sticky top-0 z-10 border-b border-border bg-background"
