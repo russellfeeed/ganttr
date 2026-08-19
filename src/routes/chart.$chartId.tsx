@@ -101,6 +101,7 @@ const HEADER_HEIGHT = 56;
 const LEFT_PANEL = 260;
 
 const ZOOM_LEVELS = [
+  { label: "Tiny", width: 28 },
   { label: "Compact", width: 48 },
   { label: "Normal", width: 72 },
   { label: "Wide", width: 104 },
@@ -116,7 +117,7 @@ function ChartEditor() {
   const chart = useGanttStore((s) => s.charts[chartId]);
   const navigate = useNavigate();
 
-  const [zoomIdx, setZoomIdx] = useState(1);
+  const [zoomIdx, setZoomIdx] = useState(2);
   const [cascade, setCascade] = useState(true);
   const [tagFilter, setTagFilter] = useState<string>("__all__");
   const [teamFilter, setTeamFilter] = useState<string>("__all__");
