@@ -101,6 +101,7 @@ const HEADER_HEIGHT = 56;
 const LEFT_PANEL = 260;
 
 const ZOOM_LEVELS = [
+  { label: "Tiny", width: 28 },
   { label: "Compact", width: 48 },
   { label: "Normal", width: 72 },
   { label: "Wide", width: 104 },
