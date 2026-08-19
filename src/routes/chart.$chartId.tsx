@@ -2424,8 +2424,8 @@ function CapacityHeatmap({
         ))}
       </div>
 
-      {/* Scrollable right pane: timeline */}
-      <div className="flex-1 overflow-x-auto">
+      {/* Timeline pane (scrolls with the shared container) */}
+      <div className="shrink-0" style={{ width: timelineWidth }}>
         <div style={{ width: timelineWidth }}>
           <div
             className="sticky top-0 z-10 border-b border-border bg-background"
