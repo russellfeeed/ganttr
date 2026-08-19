@@ -1,22 +1,27 @@
-## Goal
-Add a tooltip to the Capacity health score area explaining how the 0–100 score is calculated.
+# Fix capacity view alignment with the left Team/Role column
 
-## Current behaviour
-The `CapacityHealthBar` shows a score, status band and supporting metrics, but the score itself has no explanation of how it is derived.
+## What's actually wrong
 
-## Planned change
-- Wrap the score / badge block in a tooltip that opens on hover or focus.
-- Tooltip text explains the calculation in plain language:
-  - Score is based on the average penalty across every role-week cell that has demand (> 0); empty cells are ignored.
-  - Penalty rules per active cell: unstaffed demand = 100; overallocated = 30–100 depending on severity; exactly at capacity = 10; above 85% capacity = 5; below 85% = 0.
-  - Final score = 100 − average penalty, clamped to 0–100.
+I measured the live capacity view: the role rows in the left column and the timeline rows line up exactly (same tops, same heights, top and bottom). The real problem is the horizontal scrollbar.
 
-## Implementation details
-- Edit `src/routes/chart.$chartId.tsx` in the `CapacityHealthBar` component.
-- Wrap the score/badge block in the existing shadcn `<Tooltip>` / `<TooltipTrigger>` / `<TooltipContent>` pattern already used by the `Stat` component.
-- Keep the visual styling unchanged; only add the tooltip interaction.
-- No changes to `computeCapacityHealth` logic, store, or exports.
+The timeline pane is its own horizontally-scrolling box, so its scrollbar sits *inside* that pane and eats ~15px at the bottom (measured: pane is 666px tall but only 651px usable). The left Team/Role column has no such scrollbar, so:
 
-## Verification
-- Open the Capacity view of a chart with demand.
-- Hover over the score block and confirm the tooltip appears with the explanation text.
+- the last role rows on the left have no matching cells visible on the right — the scrollbar sits over them,
+- the two panes end at different heights, which reads as an alignment/offset bug (exactly the area circled in the screenshot).
+
+## The fix
+
+Use a single scroll container instead of two panes with independent scrollbars:
+
+- Make the outer wrapper the only scroll container (both axes).
+- Pin the Team/Role column with `sticky left-0` and a background plus right border so timeline cells scroll behind it.
+- Keep the two-tier month/week header `sticky top-0`, and make the Team/Role header cell sticky on both axes so it stays in the top-left corner.
+- Layer z-indexes so: corner cell > header row and sticky column > body cells.
+
+Result: one horizontal scrollbar at the bottom of the whole grid, shared by both panes, so every role label keeps its row of cells and nothing is clipped.
+
+## Technical notes
+
+- All changes are contained in `CapacityHeatmap` in `src/routes/chart.$chartId.tsx`.
+- No changes to row heights, capacity math, or the health/summary bars.
+- Verify afterwards in the preview: role row tops still match, the last role row is fully visible above the scrollbar, and the left column stays pinned while scrolling right.
