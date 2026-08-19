@@ -117,7 +117,7 @@ function ChartEditor() {
   const chart = useGanttStore((s) => s.charts[chartId]);
   const navigate = useNavigate();
 
-  const [zoomIdx, setZoomIdx] = useState(1);
+  const [zoomIdx, setZoomIdx] = useState(2);
   const [cascade, setCascade] = useState(true);
   const [tagFilter, setTagFilter] = useState<string>("__all__");
   const [teamFilter, setTeamFilter] = useState<string>("__all__");
