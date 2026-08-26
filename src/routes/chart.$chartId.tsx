@@ -301,7 +301,8 @@ function ChartEditor() {
       groups.push({ team: null, tasks: unassigned });
     }
     for (const g of groups) {
-      // Show empty team lanes too, but hide fully-empty Unassigned if teams exist
+      // Show empty team lanes too, but hide empty lanes while a task filter is active
+      if (g.tasks.length === 0 && (orphansOnly || noResourcesOnly || normalizedSearch)) continue;
       if (g.team === null && g.tasks.length === 0 && teams.length > 0) continue;
       rows.push({
         kind: "header",
@@ -315,7 +316,15 @@ function ChartEditor() {
       for (const t of sorted) rows.push({ kind: "task", task: t, key: t.id });
     }
     return rows;
-  }, [viewMode, visibleTasks, teams]);
+  }, [
+    viewMode,
+    visibleTasks,
+    listSwimlaneTasks,
+    teams,
+    orphansOnly,
+    noResourcesOnly,
+    normalizedSearch,
+  ]);
 
   // Per-week demand per team+role, computed from visible tasks
   // Shape: Map<teamId, Map<roleId, number[]>> where number[][week] = total quantity
