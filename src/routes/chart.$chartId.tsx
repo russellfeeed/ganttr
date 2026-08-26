@@ -1048,7 +1048,8 @@ function ChartEditor() {
           >
 
             {viewMode === "list" ? (
-              <div>
+              <div data-debug-rows={`${displayRows.length}/${listSwimlaneTasks.length}/${visibleTasks.length}/${orphansOnly}`}>
+
                 {displayRows.map((row) =>
                   row.kind === "task" ? (
                     <TaskRowStatic
