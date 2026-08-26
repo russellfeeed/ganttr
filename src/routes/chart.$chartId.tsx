@@ -2359,12 +2359,23 @@ function TaskEditor({
 
 /* ---------------- Capacity heatmap view ---------------- */
 
+type OrphanDemandRow = {
+  taskId: string;
+  taskName: string;
+  teamName: string;
+  teamColor?: string;
+  roleLabel: string;
+  quantity: number;
+};
+
 function CapacityHeatmap({
   teams,
   totalWeeks,
   weekWidth,
   chartStart,
   demandByWeek,
+  orphansOnly,
+  orphanDemandRows,
   onCellClick,
 }: {
   teams: Team[];
@@ -2372,9 +2383,15 @@ function CapacityHeatmap({
   weekWidth: number;
   chartStart: Date;
   demandByWeek: Map<string, Map<string, number[]>>;
+  orphansOnly?: boolean;
+  orphanDemandRows?: OrphanDemandRow[];
   onCellClick: (teamId: string, roleId: string, week: number) => void;
 }) {
-  const teamsWithRoles = teams.filter((t) => (t.roles ?? []).length > 0);
+  const allTeamsWithRoles = teams.filter((t) => (t.roles ?? []).length > 0);
+  const orphanTeamNames = new Set((orphanDemandRows ?? []).map((r) => r.teamName));
+  const teamsWithRoles = orphansOnly
+    ? allTeamsWithRoles.filter((t) => orphanTeamNames.has(t.name))
+    : allTeamsWithRoles;
   const NAME_COL = 240;
 
   const ratioColor = (ratio: number) => {
@@ -2390,11 +2407,44 @@ function CapacityHeatmap({
     [teamsWithRoles, demandByWeek, totalWeeks],
   );
 
+  const orphanPanel =
+    orphansOnly ? (
+      <div className="shrink-0 border-b border-border bg-amber-500/5 px-4 py-3">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-600">
+          <TriangleAlert className="h-3.5 w-3.5" />
+          Orphaned demands ({(orphanDemandRows ?? []).length})
+        </div>
+        {(orphanDemandRows ?? []).length === 0 ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            No orphaned resource demands — every task asks only for roles that exist in its team.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-1 text-xs">
+            {(orphanDemandRows ?? []).map((r, i) => (
+              <li key={`${r.taskId}-${r.roleLabel}-${i}`} className="flex items-center gap-2">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-sm"
+                  style={{ backgroundColor: r.teamColor ?? "hsl(var(--muted-foreground))" }}
+                />
+                <span className="font-medium">{r.taskName}</span>
+                <span className="text-muted-foreground">
+                  · {r.teamName} has no “{r.roleLabel}” role · needs {r.quantity}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    ) : null;
+
   if (teamsWithRoles.length === 0) {
     return (
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {orphanPanel}
         <div className="flex-1 overflow-auto p-8 text-center text-sm text-muted-foreground">
-          Add roles with headcount to teams in the Teams menu to see capacity here.
+          {orphansOnly
+            ? "No teams with roles are involved in orphaned demands."
+            : "Add roles with headcount to teams in the Teams menu to see capacity here."}
         </div>
       </div>
     );
@@ -2404,9 +2454,11 @@ function CapacityHeatmap({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
+      {orphanPanel}
       <CapacityHealthBar health={health} chartStart={chartStart} />
       <CapacityResourceSummary teams={teamsWithRoles} />
       <div className="flex flex-1 overflow-auto">
+
 
       {/* Sticky left column: team/role names */}
       <div
