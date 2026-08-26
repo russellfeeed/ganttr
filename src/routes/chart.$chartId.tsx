@@ -222,6 +222,44 @@ function ChartEditor() {
     return set;
   }, [chart?.tasks, teams, allRoleIds]);
 
+  // Detail of every orphaned demand (task -> team -> missing role), for the Capacity view
+  const orphanDemandRows = useMemo(() => {
+    const roleNames = new Map<string, string>();
+    for (const team of teams) {
+      for (const r of team.roles ?? []) roleNames.set(r.id, r.name);
+    }
+    const rows: {
+      taskId: string;
+      taskName: string;
+      teamName: string;
+      teamColor?: string;
+      roleLabel: string;
+      quantity: number;
+    }[] = [];
+    for (const task of chart?.tasks ?? []) {
+      if (!orphanTaskIds.has(task.id)) continue;
+      const taskTeam = teams.find((t) => t.id === task.teamId);
+      const validRoleIds = taskTeam
+        ? new Set((taskTeam.roles ?? []).map((r) => r.id))
+        : allRoleIds;
+      for (const d of task.demands ?? []) {
+        if (d.quantity > 0 && !validRoleIds.has(d.roleId)) {
+          rows.push({
+            taskId: task.id,
+            taskName: task.name,
+            teamName: taskTeam?.name ?? "Unassigned",
+            teamColor: taskTeam?.color,
+            roleLabel: roleNames.get(d.roleId) ?? "Deleted role",
+            quantity: d.quantity,
+          });
+        }
+      }
+    }
+    return rows;
+  }, [chart?.tasks, teams, allRoleIds, orphanTaskIds]);
+
+
+
   const visibleTasks = useMemo(() => {
     const tasks = chart?.tasks ?? [];
     return tasks.filter((t) => {
