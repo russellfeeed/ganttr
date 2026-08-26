@@ -1011,10 +1011,13 @@ function ChartEditor() {
             weekWidth={weekWidth}
             chartStart={chartStart}
             demandByWeek={demandByWeek}
+            orphansOnly={orphansOnly}
+            orphanDemandRows={orphanDemandRows}
             onCellClick={(teamId, roleId, week) =>
               setCapacityCell({ teamId, roleId, week })
             }
           />
+
         </div>
       ) : (
       <div className="flex flex-1 overflow-hidden">
